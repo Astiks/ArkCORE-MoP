@@ -4,7 +4,7 @@
 /**
  *  @file    Timer_Hash_T.h
  *
- *  $Id: Timer_Hash_T.h 95368 2011-12-19 13:38:49Z mcorino $
+ *  $Id: Timer_Hash_T.h 95807 2012-06-01 12:44:19Z johnnyw $
  *
  *  @author Darrell Brunsch <brunsch@cs.wustl.edu>
  */
@@ -324,8 +324,8 @@ private:
   HASH_ITERATOR *iterator_;
 
 #if defined (ACE_WIN64)
-  // Part of a hack... see comments in schedule().
-  // This is, essentially, the upper 32 bits of a 64-bit pointer on Win64.
+  /// Part of a hack... see comments in schedule().
+  /// This is, essentially, the upper 32 bits of a 64-bit pointer on Win64.
   ptrdiff_t pointer_base_;
 #endif
 

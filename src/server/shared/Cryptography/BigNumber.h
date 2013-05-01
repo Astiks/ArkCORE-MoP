@@ -1,95 +1,103 @@
 /*
- * Copyright (C) 2005 - 2013 MaNGOS <http://www.getmangos.com/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
- * Copyright (C) 2008 - 2013 Trinity <http://www.trinitycore.org/>
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2 of the License, or (at your
+ * option) any later version.
  *
- * Copyright (C) 2010 - 2013 ProjectSkyfire <http://www.projectskyfire.org/>
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
  *
- * Copyright (C) 2011 - 2013 ArkCORE <http://www.arkania.net/>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef _AUTH_BIGNUMBER_H
 #define _AUTH_BIGNUMBER_H
 
-#include "Common.h"
+#include "Define.h"
+#include <ace/Mutex.h>
 
 struct bignum_st;
 
-class BigNumber {
-public:
-	BigNumber();
-	BigNumber(const BigNumber &bn);
-	BigNumber(uint32);
-	~BigNumber();
+class BigNumber
+{
+    public:
+        BigNumber();
+        BigNumber(BigNumber const& bn);
+        BigNumber(uint32);
+        ~BigNumber();
 
-	void SetDword(uint32);
-	void SetQword(uint64);
-	void SetBinary(const uint8 *bytes, int len);
-	void SetHexStr(const char *str);
+        void SetDword(uint32);
+        void SetQword(uint64);
+        void SetBinary(uint8 const* bytes, int32 len);
+        void SetHexStr(char const* str);
 
-	void SetRand(int numbits);
+        void SetRand(int32 numbits);
 
-	BigNumber operator=(const BigNumber &bn);
+        BigNumber& operator=(BigNumber const& bn);
 
-	BigNumber operator+=(const BigNumber &bn);
-	BigNumber operator+(const BigNumber &bn) {
-		BigNumber t(*this);
-		return t += bn;
-	}
-	BigNumber operator-=(const BigNumber &bn);
-	BigNumber operator-(const BigNumber &bn) {
-		BigNumber t(*this);
-		return t -= bn;
-	}
-	BigNumber operator*=(const BigNumber &bn);
-	BigNumber operator*(const BigNumber &bn) {
-		BigNumber t(*this);
-		return t *= bn;
-	}
-	BigNumber operator/=(const BigNumber &bn);
-	BigNumber operator/(const BigNumber &bn) {
-		BigNumber t(*this);
-		return t /= bn;
-	}
-	BigNumber operator%=(const BigNumber &bn);
-	BigNumber operator%(const BigNumber &bn) {
-		BigNumber t(*this);
-		return t %= bn;
-	}
+        BigNumber operator+=(BigNumber const& bn);
+        BigNumber operator+(BigNumber const& bn)
+        {
+            BigNumber t(*this);
+            return t += bn;
+        }
 
-	bool isZero() const;
+        BigNumber operator-=(BigNumber const& bn);
+        BigNumber operator-(BigNumber const& bn)
+        {
+            BigNumber t(*this);
+            return t -= bn;
+        }
 
-	BigNumber ModExp(const BigNumber &bn1, const BigNumber &bn2);
-	BigNumber Exp(const BigNumber &);
+        BigNumber operator*=(BigNumber const& bn);
+        BigNumber operator*(BigNumber const& bn)
+        {
+            BigNumber t(*this);
+            return t *= bn;
+        }
 
-	int GetNumBytes(void);
+        BigNumber operator/=(BigNumber const& bn);
+        BigNumber operator/(BigNumber const& bn)
+        {
+            BigNumber t(*this);
+            return t /= bn;
+        }
 
-	struct bignum_st *BN() {
-		return _bn;
-	}
+        BigNumber operator%=(BigNumber const& bn);
+        BigNumber operator%(BigNumber const& bn)
+        {
+            BigNumber t(*this);
+            return t %= bn;
+        }
 
-	uint32 AsDword();
-	uint8* AsByteArray(int minSize = 0, bool reverse = true);
+        bool isZero() const;
 
-	const char *AsHexStr();
-	const char *AsDecStr();
+        BigNumber ModExp(BigNumber const& bn1, BigNumber const& bn2);
+        BigNumber Exp(BigNumber const&);
 
-private:
-	struct bignum_st *_bn;
-	uint8 *_array;
+        int32 GetNumBytes(void);
+
+        struct bignum_st *BN() { return _bn; }
+
+        uint32 AsDword();
+        uint8* AsByteArray(int32 minSize = 0, bool reverse = true);
+
+        char * AsHexStr() const;
+        char * AsDecStr() const;
+
+    private:
+        struct bignum_st *_bn;
+        uint8 *_array;
+
+        // This mutex only controls thread-safe access to AsByteArray() and should be replaced with a thread-safe implementation of BigNumber
+        ACE_Mutex _lock;
+
 };
 #endif
+

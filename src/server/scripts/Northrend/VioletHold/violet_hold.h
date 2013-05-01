@@ -1,9 +1,5 @@
 /*
- * Copyright (C) 2005 - 2013 MaNGOS <http://www.getmangos.com/>
- *
- * Copyright (C) 2008 - 2013 Trinity <http://www.trinitycore.org/>
- *
- * Copyright (C) 2010 - 2013 ArkCORE <http://www.arkania.net/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -89,7 +85,7 @@ enum Data64
 
 enum Bosses
 {
-    BOSS_NONE,             // 0 used as marker for not yet randomized
+    BOSS_NONE,              // 0 used as marker for not yet randomized
     BOSS_MORAGG,
     BOSS_EREKEM,
     BOSS_ICHORON,

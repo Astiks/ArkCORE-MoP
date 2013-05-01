@@ -1,9 +1,5 @@
 /*
- * Copyright (C) 2005 - 2013 MaNGOS <http://www.getmangos.com/>
- *
- * Copyright (C) 2008 - 2013 Trinity <http://www.trinitycore.org/>
- *
- * Copyright (C) 2010 - 2013 ArkCORE <http://www.arkania.net/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -20,123 +16,97 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "ScriptPCH.h"
+#include "ScriptMgr.h"
+#include "ScriptedCreature.h"
 #include "nexus.h"
+#include "SpellScript.h"
 
 enum Spells
 {
-    SPELL_CRYSTAL_SPIKES                          = 47958, //doesn't work, using workaround
-    H_SPELL_CRYSTAL_SPIKES                        = 57082, //doesn't work, using workaround
-    SPELL_CRYSTALL_SPIKE_DAMAGE                   = 47944,
-    H_SPELL_CRYSTALL_SPIKE_DAMAGE                 = 57067,
-    SPELL_CRYSTAL_SPIKE_PREVISUAL                 = 50442,
-    SPELL_SPELL_REFLECTION                        = 47981,
-    SPELL_TRAMPLE                                 = 48016,
-    H_SPELL_TRAMPLE                               = 57066,
-    SPELL_FRENZY                                  = 48017,
-    SPELL_SUMMON_CRYSTALLINE_TANGLER              = 61564, //summons npc 32665
-    SPELL_TANGLE                                  = 61555
+    SPELL_SPELL_REFLECTION                      = 47981,
+    SPELL_TRAMPLE                               = 48016,
+    SPELL_FRENZY                                = 48017,
+    SPELL_SUMMON_CRYSTALLINE_TANGLER            = 61564,
+    SPELL_CRYSTAL_SPIKES                        = 47958,
 };
-
 enum Yells
 {
-    SAY_AGGRO                                     = -1576020,
-    SAY_DEATH                                     = -1576021,
-    SAY_REFLECT                                   = -1576022,
-    SAY_CRYSTAL_SPIKES                            = -1576023,
-    SAY_KILL                                      = -1576024
+    SAY_AGGRO                                   = 1,
+    SAY_DEATH                                   = 2,
+    SAY_REFLECT                                 = 3,
+    SAY_CRYSTAL_SPIKES                          = 4,
+    SAY_KILL                                    = 5,
 };
 
-enum Creatures
+enum Events
 {
-    MOB_CRYSTAL_SPIKE                             = 27099,
-    MOB_CRYSTALLINE_TANGLER                       = 32665
+    EVENT_CRYSTAL_SPIKES                        = 1,
+    EVENT_TRAMPLE                               = 2,
+    EVENT_SPELL_REFLECTION                      = 3,
+    EVENT_CRYSTALLINE_TANGLER                   = 4,
 };
 
-#define SPIKE_DISTANCE                            5.0f
+class OrmorokTanglerPredicate
+{
+   public:
+      OrmorokTanglerPredicate(Unit* unit) : me(unit) {}
+
+    bool operator() (WorldObject* object) const
+    {
+        return object->GetDistance2d(me) >= 5.0f;
+    }
+
+    private:
+        Unit* me;
+};
 
 class boss_ormorok : public CreatureScript
 {
 public:
     boss_ormorok() : CreatureScript("boss_ormorok") { }
 
-    CreatureAI* GetAI(Creature* creature) const
+    struct boss_ormorokAI : public BossAI
     {
-        return new boss_ormorokAI (creature);
-    }
-
-    struct boss_ormorokAI : public ScriptedAI
-    {
-        boss_ormorokAI(Creature* c) : ScriptedAI(c)
-        {
-            pInstance = c->GetInstanceScript();
-        }
-
-        InstanceScript* pInstance;
-
-        bool bFrenzy;
-        bool bCrystalSpikes;
-        bool breflect;
-        uint8 uiCrystalSpikesCount;
-        float fBaseX;
-        float fBaseY;
-        float fBaseZ;
-        float fBaseO;
-        float fSpikeXY[4][2];
-
-        uint32 uiCrystalSpikesTimer;
-        uint32 uiCrystalSpikesTimer2;
-        uint32 uiTrampleTimer;
-        uint32 uiFrenzyTimer;
-        uint32 uiSpellReflectionTimer;
-        uint32 uiReflect;
-        uint32 uiSummonCrystallineTanglerTimer;
-
-        uint8 uiReflectCount;
-
-        void Reset()
-        {
-            uiCrystalSpikesTimer = 12*IN_MILLISECONDS;
-            uiTrampleTimer = 10*IN_MILLISECONDS;
-            uiSpellReflectionTimer = 30*IN_MILLISECONDS;
-            uiSummonCrystallineTanglerTimer = 10*IN_MILLISECONDS;
-            bFrenzy = false;
-            bCrystalSpikes = false;
-            uiReflect=14500;
-            uiReflectCount=4;
-
-            if (pInstance)
-                pInstance->SetData(DATA_ORMOROK_EVENT, NOT_STARTED);
-        }
+        boss_ormorokAI(Creature* creature) : BossAI(creature, DATA_ORMOROK_EVENT) {}
 
         void EnterCombat(Unit* /*who*/)
         {
-            DoScriptText(SAY_AGGRO, me);
+            _EnterCombat();
 
-            if (pInstance)
-                pInstance->SetData(DATA_ORMOROK_EVENT, IN_PROGRESS);
+            events.ScheduleEvent(EVENT_CRYSTAL_SPIKES, 12000);
+            events.ScheduleEvent(EVENT_TRAMPLE, 10000);
+            events.ScheduleEvent(EVENT_SPELL_REFLECTION, 30000);
+            if (IsHeroic())
+                events.ScheduleEvent(EVENT_CRYSTALLINE_TANGLER, 17000);
+
+            Talk(SAY_AGGRO);
+
+            if (instance)
+                instance->SetData(DATA_ORMOROK_EVENT, IN_PROGRESS);
+        }
+
+        void DamageTaken(Unit* /*attacker*/, uint32& /*damage*/)
+        {
+            if (!frenzy && HealthBelowPct(25))
+            {
+                DoCast(me, SPELL_FRENZY);
+                frenzy = true;
+            }
         }
 
         void JustDied(Unit* /*killer*/)
         {
-            DoScriptText(SAY_DEATH, me);
+            _JustDied();
 
-            if (pInstance)
-                pInstance->SetData(DATA_ORMOROK_EVENT, DONE);
+            Talk(SAY_DEATH);
+
+            if (instance)
+                instance->SetData(DATA_ORMOROK_EVENT, DONE);
         }
 
         void KilledUnit(Unit* /*victim*/)
         {
-            DoScriptText(SAY_KILL, me);
-        }
-
-        void SpellHit(Unit* /*pCaster*/, const SpellEntry* pSpell)
-        {
-            if (me->HasAura(SPELL_SPELL_REFLECTION)) //&& (!pSpell->AttributesEx2 & SPELL_ATTR_EX2_CANT_REFLECTED))
-                uiReflectCount--;
-
-            if (uiReflectCount==0)
-                me->RemoveAura(SPELL_SPELL_REFLECTION, 0, 0, AURA_REMOVE_BY_EXPIRE);
+            Talk(SAY_KILL);
         }
 
         void UpdateAI(const uint32 diff)
@@ -144,129 +114,173 @@ public:
             if (!UpdateVictim())
                 return;
 
-            if (bCrystalSpikes)
+            events.Update(diff);
+
+            if (me->HasUnitState(UNIT_STATE_CASTING))
+                return;
+
+            while (uint32 eventId = events.ExecuteEvent())
             {
-                if (uiCrystalSpikesTimer2 <= diff)
+                switch (eventId)
                 {
-                    fSpikeXY[0][0] = fBaseX+(SPIKE_DISTANCE*uiCrystalSpikesCount*cos(fBaseO));
-                    fSpikeXY[0][1] = fBaseY+(SPIKE_DISTANCE*uiCrystalSpikesCount*sin(fBaseO));
-                    fSpikeXY[1][0] = fBaseX-(SPIKE_DISTANCE*uiCrystalSpikesCount*cos(fBaseO));
-                    fSpikeXY[1][1] = fBaseY-(SPIKE_DISTANCE*uiCrystalSpikesCount*sin(fBaseO));
-                    fSpikeXY[2][0] = fBaseX+(SPIKE_DISTANCE*uiCrystalSpikesCount*cos(fBaseO-(M_PI/2)));
-                    fSpikeXY[2][1] = fBaseY+(SPIKE_DISTANCE*uiCrystalSpikesCount*sin(fBaseO-(M_PI/2)));
-                    fSpikeXY[3][0] = fBaseX-(SPIKE_DISTANCE*uiCrystalSpikesCount*cos(fBaseO-(M_PI/2)));
-                    fSpikeXY[3][1] = fBaseY-(SPIKE_DISTANCE*uiCrystalSpikesCount*sin(fBaseO-(M_PI/2)));
-                    for (uint8 i = 0; i < 4; ++i)
-                        me->SummonCreature(MOB_CRYSTAL_SPIKE, fSpikeXY[i][0], fSpikeXY[i][1], fBaseZ, 0, TEMPSUMMON_TIMED_DESPAWN, 7*IN_MILLISECONDS);
-                    if (++uiCrystalSpikesCount >= 15)
-                        bCrystalSpikes = false;
-                    uiCrystalSpikesTimer2 = 200;
-                } else uiCrystalSpikesTimer2 -= diff;
-            }
-
-            if (!bFrenzy && HealthBelowPct(25))
-            {
-                DoCast(me, SPELL_FRENZY);
-                bFrenzy = true;
-            }
-
-            if (uiTrampleTimer <= diff)
-            {
-                DoCast(me, DUNGEON_MODE(SPELL_TRAMPLE, H_SPELL_TRAMPLE));
-                uiTrampleTimer = 10*IN_MILLISECONDS;
-            } else uiTrampleTimer -= diff;
-
-            if (uiSpellReflectionTimer <= diff)
-            {
-                DoScriptText(SAY_REFLECT, me);
-                DoCast(me, SPELL_SPELL_REFLECTION);
-                uiSpellReflectionTimer = urand(25*IN_MILLISECONDS, 30*IN_MILLISECONDS);
-                uiReflectCount=4;
-            } else uiSpellReflectionTimer -= diff;
-
-            if (breflect)
-                if (uiReflect<=diff)
-                {
-                    me->RemoveAura(SPELL_SPELL_REFLECTION, 0, 0, AURA_REMOVE_BY_EXPIRE);
-                    uiReflect=14500;
-                } else uiReflect-=diff;
-
-            if (uiCrystalSpikesTimer <= diff)
-            {
-                DoScriptText(SAY_CRYSTAL_SPIKES, me);
-                bCrystalSpikes = true;
-                uiCrystalSpikesCount = 1;
-                uiCrystalSpikesTimer2 = 0;
-                fBaseX = me->GetPositionX();
-                fBaseY = me->GetPositionY();
-                fBaseZ = me->GetPositionZ();
-                fBaseO = me->GetOrientation();
-                uiCrystalSpikesTimer = urand(15*IN_MILLISECONDS, 20*IN_MILLISECONDS);
-            } else uiCrystalSpikesTimer -= diff;
-
-            if (IsHeroic() && (uiSummonCrystallineTanglerTimer <= diff))
-            {
-                if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
-                {
-                    if (Creature *pTangler = me->SummonCreature(MOB_CRYSTALLINE_TANGLER, target->GetPositionX(), target->GetPositionY(), target->GetPositionZ(), 0, TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 1000))
-                    {
-                        pTangler->CastSpell(pTangler, SPELL_TANGLE, true);
-                        pTangler->AI()->AttackStart(target);
-                        pTangler->getThreatManager().addThreat(target, 1.0f);
-                    }
+                case EVENT_TRAMPLE:
+                    DoCast(me, SPELL_TRAMPLE);
+                    events.ScheduleEvent(EVENT_TRAMPLE, 10000);
+                    break;
+                case EVENT_SPELL_REFLECTION:
+                    Talk(SAY_REFLECT);
+                    DoCast(me, SPELL_SPELL_REFLECTION);
+                    events.ScheduleEvent(EVENT_SPELL_REFLECTION, 30000);
+                    break;
+                case EVENT_CRYSTAL_SPIKES:
+                    Talk(SAY_CRYSTAL_SPIKES);
+                    DoCast(SPELL_CRYSTAL_SPIKES);
+                    events.ScheduleEvent(EVENT_CRYSTAL_SPIKES, 12000);
+                    break;
+                case EVENT_CRYSTALLINE_TANGLER:
+                    if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, OrmorokTanglerPredicate(me)))
+                        DoCast(target, SPELL_SUMMON_CRYSTALLINE_TANGLER);
+                    events.ScheduleEvent(EVENT_CRYSTALLINE_TANGLER, 17000);
+                    break;
+                default:
+                    break;
                 }
-                uiSummonCrystallineTanglerTimer = urand(5*IN_MILLISECONDS, 15*IN_MILLISECONDS);
-            } else uiSummonCrystallineTanglerTimer -= diff;
+            }
 
             DoMeleeAttackIfReady();
         }
-    };
-};
 
-class mob_crystal_spike : public CreatureScript
-{
-public:
-    mob_crystal_spike() : CreatureScript("mob_crystal_spike") { }
+    private:
+        bool frenzy;
+
+    };
 
     CreatureAI* GetAI(Creature* creature) const
     {
-        return new mob_crystal_spikeAI (creature);
+        return new boss_ormorokAI (creature);
     }
+};
 
-    struct mob_crystal_spikeAI : public Scripted_NoMovementAI
+enum CrystalSpikes
+{
+    NPC_CRYSTAL_SPIKE_INITIAL        = 27101,
+    NPC_CRYSTAL_SPIKE_TRIGGER        = 27079,
+
+    DATA_COUNT                       = 1,
+    MAX_COUNT                        = 5,
+
+    SPELL_CRYSTAL_SPIKE_DAMAGE       = 47944,
+
+    GO_CRYSTAL_SPIKE_TRAP            = 188537,
+};
+
+uint32 const crystalSpikeSummon[3] =
+{
+        47936,
+        47942,
+        47943
+};
+
+class npc_crystal_spike_trigger : public CreatureScript
+{
+public:
+    npc_crystal_spike_trigger() : CreatureScript("npc_crystal_spike_trigger") { }
+
+    struct npc_crystal_spike_triggerAI : public ScriptedAI
     {
-        mob_crystal_spikeAI(Creature* c) : Scripted_NoMovementAI(c)
+        npc_crystal_spike_triggerAI(Creature* creature) : ScriptedAI(creature) {}
+
+        void IsSummonedBy(Unit* owner)
         {
+            switch (me->GetEntry())
+            {
+                case NPC_CRYSTAL_SPIKE_INITIAL:
+                     _count = 0;
+                     me->SetFacingToObject(owner);
+                     break;
+                case NPC_CRYSTAL_SPIKE_TRIGGER:
+                    if (Creature* trigger = owner->ToCreature())
+                        _count = trigger->AI()->GetData(DATA_COUNT) + 1;
+                    break;
+                default:
+                    _count = MAX_COUNT;
+                    break;
+            }
+
+            if (me->GetEntry() == NPC_CRYSTAL_SPIKE_TRIGGER)
+                if (GameObject* trap = me->FindNearestGameObject(GO_CRYSTAL_SPIKE_TRAP, 1.0f))
+                    trap->Use(me);
+
+            _despawntimer = 2000;
         }
 
-        uint32 SpellCrystalSpikeDamageTimer;
-        uint32 SpellCrystalSpikePrevisualTimer;
-
-        void Reset()
+        uint32 GetData(uint32 type) const
         {
-            SpellCrystalSpikeDamageTimer = 3700;
-            SpellCrystalSpikePrevisualTimer = 1*IN_MILLISECONDS;
+            return type == DATA_COUNT ? _count : 0;
         }
 
         void UpdateAI(const uint32 diff)
         {
-            if (SpellCrystalSpikePrevisualTimer <= diff)
+            if (_despawntimer <= diff)
             {
-                DoCast(me, SPELL_CRYSTAL_SPIKE_PREVISUAL);
-                SpellCrystalSpikePrevisualTimer = 10*IN_MILLISECONDS;
-            } else SpellCrystalSpikePrevisualTimer -= diff;
+                if (me->GetEntry() == NPC_CRYSTAL_SPIKE_TRIGGER)
+                    if (GameObject* trap = me->FindNearestGameObject(GO_CRYSTAL_SPIKE_TRAP, 1.0f))
+                        trap->Delete();
 
-            if (SpellCrystalSpikeDamageTimer <= diff)
-            {
-            DoCast(me, DUNGEON_MODE(SPELL_CRYSTALL_SPIKE_DAMAGE, H_SPELL_CRYSTALL_SPIKE_DAMAGE));
-                SpellCrystalSpikeDamageTimer = 10*IN_MILLISECONDS;
-            } else SpellCrystalSpikeDamageTimer -= diff;
+                me->DespawnOrUnsummon();
+            }
+            else
+                _despawntimer -= diff;
         }
+
+    private:
+        uint32 _count;
+        uint32 _despawntimer;
+
     };
+
+    CreatureAI* GetAI(Creature* creature) const
+    {
+        return new npc_crystal_spike_triggerAI(creature);
+    }
+};
+
+class spell_crystal_spike : public SpellScriptLoader
+{
+    public:
+        spell_crystal_spike() : SpellScriptLoader("spell_crystal_spike") { }
+
+        class spell_crystal_spike_AuraScript : public AuraScript
+        {
+            PrepareAuraScript(spell_crystal_spike_AuraScript);
+
+            void HandlePeriodic(AuraEffect const* /*aurEff*/)
+            {
+                Unit* target = GetTarget();
+                if (target->GetEntry() == NPC_CRYSTAL_SPIKE_INITIAL || target->GetEntry() == NPC_CRYSTAL_SPIKE_TRIGGER)
+                    if (Creature* trigger = target->ToCreature())
+                    {
+                        uint32 spell = target->GetEntry() == NPC_CRYSTAL_SPIKE_INITIAL ? crystalSpikeSummon[0] : crystalSpikeSummon[urand(0, 2)];
+                        if (trigger->AI()->GetData(DATA_COUNT) < MAX_COUNT)
+                            trigger->CastSpell(trigger, spell, true);
+                    }
+            }
+
+            void Register()
+            {
+                OnEffectPeriodic += AuraEffectPeriodicFn(spell_crystal_spike_AuraScript::HandlePeriodic, EFFECT_0, SPELL_AURA_PERIODIC_DUMMY);
+            }
+        };
+
+        AuraScript* GetAuraScript() const
+        {
+            return new spell_crystal_spike_AuraScript();
+        }
 };
 
 void AddSC_boss_ormorok()
 {
     new boss_ormorok();
-    new mob_crystal_spike();
+    new npc_crystal_spike_trigger();
+    new spell_crystal_spike();
 }

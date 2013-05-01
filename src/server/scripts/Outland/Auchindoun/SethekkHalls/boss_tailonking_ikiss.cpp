@@ -1,27 +1,19 @@
 /*
- * Copyright (C) 2005 - 2013 MaNGOS <http://www.getmangos.com/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
- * Copyright (C) 2008 - 2013 Trinity <http://www.trinitycore.org/>
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2 of the License, or (at your
+ * option) any later version.
  *
- * Copyright (C) 2006 - 2013 ScriptDev2 <http://www.scriptdev2.com/>
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
  *
- * Copyright (C) 2010 - 2013 ProjectSkyfire <http://www.projectskyfire.org/>
- *
- * Copyright (C) 2011 - 2013 ArkCORE <http://www.arkania.net/>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 /* ScriptData
@@ -31,53 +23,49 @@ SDComment: Heroic supported. Some details missing, but most are spell related.
 SDCategory: Auchindoun, Sethekk Halls
 EndScriptData */
 
-#include "ScriptPCH.h"
+#include "ScriptMgr.h"
+#include "ScriptedCreature.h"
 #include "sethekk_halls.h"
 
-#define SAY_INTRO                   -1556007
+enum TailonkingIkiss
+{
+    SAY_INTRO                   = 0,
+    SAY_AGGRO                   = 1,
+    SAY_SLAY                    = 2,
+    SAY_DEATH                   = 3,
+    EMOTE_ARCANE_EXP            = 4,
 
-#define SAY_AGGRO_1                 -1556008
-#define SAY_AGGRO_2                 -1556009
-#define SAY_AGGRO_3                 -1556010
-
-#define SAY_SLAY_1                  -1556011
-#define SAY_SLAY_2                  -1556012
-#define SAY_DEATH                   -1556013
-#define EMOTE_ARCANE_EXP            -1556015
-
-#define SPELL_BLINK                 38194
-#define SPELL_BLINK_TELEPORT        38203
-#define SPELL_MANA_SHIELD           38151
-#define SPELL_ARCANE_BUBBLE         9438
-#define H_SPELL_SLOW                35032
-
-#define SPELL_POLYMORPH             38245
-#define H_SPELL_POLYMORPH           43309
-
-#define SPELL_ARCANE_VOLLEY         35059
-#define H_SPELL_ARCANE_VOLLEY       40424
-
-#define SPELL_ARCANE_EXPLOSION      38197
-#define H_SPELL_ARCANE_EXPLOSION    40425
+    SPELL_BLINK                 = 38194,
+    SPELL_BLINK_TELEPORT        = 38203,
+    SPELL_MANA_SHIELD           = 38151,
+    SPELL_ARCANE_BUBBLE         = 9438,
+    H_SPELL_SLOW                = 35032,
+    SPELL_POLYMORPH             = 38245,
+    H_SPELL_POLYMORPH           = 43309,
+    SPELL_ARCANE_VOLLEY         = 35059,
+    H_SPELL_ARCANE_VOLLEY       = 40424,
+    SPELL_ARCANE_EXPLOSION      = 38197,
+    H_SPELL_ARCANE_EXPLOSION    = 40425
+};
 
 class boss_talon_king_ikiss : public CreatureScript
 {
 public:
     boss_talon_king_ikiss() : CreatureScript("boss_talon_king_ikiss") { }
 
-    CreatureAI* GetAI(Creature* pCreature) const
+    CreatureAI* GetAI(Creature* creature) const
     {
-        return new boss_talon_king_ikissAI (pCreature);
+        return new boss_talon_king_ikissAI (creature);
     }
 
     struct boss_talon_king_ikissAI : public ScriptedAI
     {
-        boss_talon_king_ikissAI(Creature *c) : ScriptedAI(c)
+        boss_talon_king_ikissAI(Creature* creature) : ScriptedAI(creature)
         {
-            pInstance = c->GetInstanceScript();
+            instance = creature->GetInstanceScript();
         }
 
-        InstanceScript* pInstance;
+        InstanceScript* instance;
 
         uint32 ArcaneVolley_Timer;
         uint32 Sheep_Timer;
@@ -99,17 +87,17 @@ public:
             ManaShield = false;
         }
 
-        void MoveInLineOfSight(Unit *who)
+        void MoveInLineOfSight(Unit* who)
         {
-            if (!me->getVictim() && who->isTargetableForAttack() && (me->IsHostileTo(who)) && who->isInAccessiblePlaceFor(me))
+            if (!me->getVictim() && me->canCreatureAttack(who))
             {
                 if (!Intro && me->IsWithinDistInMap(who, 100))
                 {
                     Intro = true;
-                    DoScriptText(SAY_INTRO, me);
+                    Talk(SAY_INTRO);
                 }
 
-                if (!me->canFly() && me->GetDistanceZ(who) > CREATURE_Z_ATTACK_RANGE)
+                if (!me->CanFly() && me->GetDistanceZ(who) > CREATURE_Z_ATTACK_RANGE)
                     return;
 
                 float attackRadius = me->GetAttackDistance(who);
@@ -121,22 +109,22 @@ public:
             }
         }
 
-        void EnterCombat(Unit * /*who*/)
+        void EnterCombat(Unit* /*who*/)
         {
-            DoScriptText(RAND(SAY_AGGRO_1, SAY_AGGRO_2, SAY_AGGRO_3), me);
+            Talk(SAY_AGGRO);
         }
 
-        void JustDied(Unit* /*Killer*/)
+        void JustDied(Unit* /*killer*/)
         {
-            DoScriptText(SAY_DEATH, me);
+            Talk(SAY_DEATH);
 
-            if (pInstance)
-                pInstance->SetData(DATA_IKISSDOOREVENT, DONE);
+            if (instance)
+                instance->SetData(DATA_IKISSDOOREVENT, DONE);
         }
 
         void KilledUnit(Unit* /*victim*/)
         {
-            DoScriptText(RAND(SAY_SLAY_1, SAY_SLAY_2), me);
+            Talk(SAY_SLAY);
         }
 
         void UpdateAI(const uint32 diff)
@@ -159,16 +147,16 @@ public:
 
             if (Sheep_Timer <= diff)
             {
-                Unit *pTarget;
+                Unit* target;
 
                 //second top aggro target in normal, random target in heroic correct?
                 if (IsHeroic())
-                    pTarget = SelectUnit(SELECT_TARGET_RANDOM, 0);
+                    target = SelectTarget(SELECT_TARGET_RANDOM, 0);
                 else
-                    pTarget = SelectUnit(SELECT_TARGET_TOPAGGRO, 1);
+                    target = SelectTarget(SELECT_TARGET_TOPAGGRO, 1);
 
-                if (pTarget)
-                    DoCast(pTarget, SPELL_POLYMORPH);
+                if (target)
+                    DoCast(target, SPELL_POLYMORPH);
                 Sheep_Timer = 15000+rand()%2500;
             } else Sheep_Timer -= diff;
 
@@ -190,23 +178,23 @@ public:
 
             if (Blink_Timer <= diff)
             {
-                DoScriptText(EMOTE_ARCANE_EXP, me);
+                Talk(EMOTE_ARCANE_EXP);
 
-                if (Unit *pTarget = SelectUnit(SELECT_TARGET_RANDOM, 0))
+                if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
                 {
                     if (me->IsNonMeleeSpellCasted(false))
                         me->InterruptNonMeleeSpells(false);
 
                     //Spell doesn't work, but we use for visual effect at least
-                    DoCast(pTarget, SPELL_BLINK);
+                    DoCast(target, SPELL_BLINK);
 
-                    float X = pTarget->GetPositionX();
-                    float Y = pTarget->GetPositionY();
-                    float Z = pTarget->GetPositionZ();
+                    float X = target->GetPositionX();
+                    float Y = target->GetPositionY();
+                    float Z = target->GetPositionZ();
 
                     DoTeleportTo(X, Y, Z);
 
-                    DoCast(pTarget, SPELL_BLINK_TELEPORT);
+                    DoCast(target, SPELL_BLINK_TELEPORT);
                     Blink = true;
                 }
                 Blink_Timer = 35000+rand()%5000;
@@ -216,6 +204,7 @@ public:
                 DoMeleeAttackIfReady();
         }
     };
+
 };
 
 void AddSC_boss_talon_king_ikiss()

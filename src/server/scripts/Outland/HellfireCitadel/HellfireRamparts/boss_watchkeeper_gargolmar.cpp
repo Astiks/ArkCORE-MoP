@@ -1,49 +1,39 @@
 /*
- * Copyright (C) 2005 - 2013 MaNGOS <http://www.getmangos.com/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
- * Copyright (C) 2008 - 2013 Trinity <http://www.trinitycore.org/>
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2 of the License, or (at your
+ * option) any later version.
  *
- * Copyright (C) 2006 - 2013 ScriptDev2 <http://www.scriptdev2.com/>
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
  *
- * Copyright (C) 2010 - 2013 ProjectSkyfire <http://www.projectskyfire.org/>
- *
- * Copyright (C) 2011 - 2013 ArkCORE <http://www.arkania.net/>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 /* ScriptData
 SDName: Boss_Watchkeeper_Gargolmar
 SD%Complete: 80
-SDComment: Missing adds to heal him. Surge should be used on pTarget furthest away, not random.
+SDComment: Missing adds to heal him. Surge should be used on target furthest away, not random.
 SDCategory: Hellfire Citadel, Hellfire Ramparts
 EndScriptData */
 
-#include "ScriptPCH.h"
+#include "ScriptMgr.h"
+#include "ScriptedCreature.h"
 
 enum eSays
 {
-    SAY_TAUNT              = -1543000,
-    SAY_HEAL               = -1543001,
-    SAY_SURGE              = -1543002,
-    SAY_AGGRO_1            = -1543003,
-    SAY_AGGRO_2            = -1543004,
-    SAY_AGGRO_3            = -1543005,
-    SAY_KILL_1             = -1543006,
-    SAY_KILL_2             = -1543007,
-    SAY_DIE                = -1543008,
+    SAY_TAUNT              = 0,
+    SAY_HEAL               = 1,
+    SAY_SURGE              = 2,
+    SAY_AGGRO              = 3,
+    SAY_KILL               = 4,
+    SAY_DIE                = 5
 };
 
 enum eSpells
@@ -51,7 +41,7 @@ enum eSpells
     SPELL_MORTAL_WOUND     = 30641,
     H_SPELL_MORTAL_WOUND   = 36814,
     SPELL_SURGE            = 34645,
-    SPELL_RETALIATION      = 22857,
+    SPELL_RETALIATION      = 22857
 };
 
 class boss_watchkeeper_gargolmar : public CreatureScript
@@ -65,7 +55,7 @@ class boss_watchkeeper_gargolmar : public CreatureScript
 
         struct boss_watchkeeper_gargolmarAI : public ScriptedAI
         {
-            boss_watchkeeper_gargolmarAI(Creature* pCreature) : ScriptedAI(pCreature)
+            boss_watchkeeper_gargolmarAI(Creature* creature) : ScriptedAI(creature)
             {
             }
 
@@ -86,16 +76,16 @@ class boss_watchkeeper_gargolmar : public CreatureScript
                 YelledForHeal = false;
             }
 
-            void EnterCombat(Unit * /*who*/)
+            void EnterCombat(Unit* /*who*/)
             {
-                DoScriptText(RAND(SAY_AGGRO_1, SAY_AGGRO_2, SAY_AGGRO_3), me);
+                Talk(SAY_AGGRO);
             }
 
             void MoveInLineOfSight(Unit* who)
             {
-                if (!me->getVictim() && who->isTargetableForAttack() && (me->IsHostileTo(who)) && who->isInAccessiblePlaceFor(me))
+                if (!me->getVictim() && me->canCreatureAttack(who))
                 {
-                    if (!me->canFly() && me->GetDistanceZ(who) > CREATURE_Z_ATTACK_RANGE)
+                    if (!me->CanFly() && me->GetDistanceZ(who) > CREATURE_Z_ATTACK_RANGE)
                         return;
 
                     float attackRadius = me->GetAttackDistance(who);
@@ -106,7 +96,7 @@ class boss_watchkeeper_gargolmar : public CreatureScript
                     }
                     else if (!HasTaunted && me->IsWithinDistInMap(who, 60.0f))
                     {
-                        DoScriptText(SAY_TAUNT, me);
+                        Talk(SAY_TAUNT);
                         HasTaunted = true;
                     }
                 }
@@ -114,12 +104,12 @@ class boss_watchkeeper_gargolmar : public CreatureScript
 
             void KilledUnit(Unit* /*victim*/)
             {
-                DoScriptText(RAND(SAY_KILL_1, SAY_KILL_2), me);
+                Talk(SAY_KILL);
             }
 
-            void JustDied(Unit* /*Killer*/)
+            void JustDied(Unit* /*killer*/)
             {
-                DoScriptText(SAY_DIE, me);
+                Talk(SAY_DIE);
             }
 
             void UpdateAI(const uint32 diff)
@@ -137,10 +127,10 @@ class boss_watchkeeper_gargolmar : public CreatureScript
 
                 if (Surge_Timer <= diff)
                 {
-                    DoScriptText(SAY_SURGE, me);
+                    Talk(SAY_SURGE);
 
-                    if (Unit *pTarget = SelectUnit(SELECT_TARGET_RANDOM, 0))
-                        DoCast(pTarget, SPELL_SURGE);
+                    if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
+                        DoCast(target, SPELL_SURGE);
 
                     Surge_Timer = 5000+rand()%8000;
                 }
@@ -162,7 +152,7 @@ class boss_watchkeeper_gargolmar : public CreatureScript
                 {
                     if (HealthBelowPct(40))
                     {
-                        DoScriptText(SAY_HEAL, me);
+                        Talk(SAY_HEAL);
                         YelledForHeal = true;
                     }
                 }
@@ -171,9 +161,9 @@ class boss_watchkeeper_gargolmar : public CreatureScript
             }
         };
 
-        CreatureAI* GetAI(Creature* Creature) const
+        CreatureAI* GetAI(Creature* creature) const
         {
-            return new boss_watchkeeper_gargolmarAI (Creature);
+            return new boss_watchkeeper_gargolmarAI(creature);
         }
 };
 
@@ -181,3 +171,4 @@ void AddSC_boss_watchkeeper_gargolmar()
 {
     new boss_watchkeeper_gargolmar();
 }
+

@@ -1,9 +1,5 @@
 /*
- * Copyright (C) 2005 - 2013 MaNGOS <http://www.getmangos.com/>
- *
- * Copyright (C) 2008 - 2013 Trinity <http://www.trinitycore.org/>
- *
- * Copyright (C) 2010 - 2013 ArkCORE <http://www.arkania.net/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -27,13 +23,16 @@ SDComment:
 SDCategory: Uldaman
 EndScriptData */
 
-#include "ScriptPCH.h"
+#include "ScriptMgr.h"
+#include "ScriptedCreature.h"
 
-#define SAY_AGGRO                   -1070000
-
-#define SPELL_ARCINGSMASH           8374
-#define SPELL_KNOCKAWAY             10101
-#define SPELL_WSTOMP                11876
+enum Ironaya
+{
+    SAY_AGGRO                   = 0,
+    SPELL_ARCINGSMASH           = 8374,
+    SPELL_KNOCKAWAY             = 10101,
+    SPELL_WSTOMP                = 11876,
+};
 
 class boss_ironaya : public CreatureScript
 {
@@ -61,7 +60,7 @@ class boss_ironaya : public CreatureScript
 
             void EnterCombat(Unit* /*who*/)
             {
-                DoScriptText(SAY_AGGRO, me);
+                Talk(SAY_AGGRO);
             }
 
             void UpdateAI(const uint32 uiDiff)

@@ -1,27 +1,19 @@
 /*
- * Copyright (C) 2005 - 2013 MaNGOS <http://www.getmangos.com/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
- * Copyright (C) 2008 - 2013 Trinity <http://www.trinitycore.org/>
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2 of the License, or (at your
+ * option) any later version.
  *
- * Copyright (C) 2006 - 2013 ScriptDev2 <http://www.scriptdev2.com/>
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
  *
- * Copyright (C) 2010 - 2013 ProjectSkyfire <http://www.projectskyfire.org/>
- *
- * Copyright (C) 2011 - 2013 ArkCORE <http://www.arkania.net/>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 /* ScriptData
@@ -31,7 +23,9 @@ SDComment: Immunities are wrong, must be adjusted to use resistance from creatur
 SDCategory: Tempest Keep, The Botanica
 EndScriptData */
 
-#include "ScriptPCH.h"
+#include "ScriptMgr.h"
+#include "ScriptedCreature.h"
+#include "the_botanica.h"
 
 enum eSpells
 {
@@ -45,16 +39,16 @@ enum eSpells
     SPELL_SUMMON_LASHER_3      = 34686,
     SPELL_SUMMON_FLAYER_4      = 34687,
     SPELL_SUMMON_LASHER_4      = 34688,
-    SPELL_SUMMON_FLAYER_3      = 34690,
+    SPELL_SUMMON_FLAYER_3      = 34690
 };
 enum eOthers
 {
-    EMOTE_SUMMON               = -1553006,
+    EMOTE_SUMMON               = 0,
     MODEL_DEFAULT              = 13109,
     MODEL_ARCANE               = 14213,
     MODEL_FIRE                 = 13110,
     MODEL_FROST                = 14112,
-    MODEL_NATURE               = 14214,
+    MODEL_NATURE               = 14214
 };
 
 class boss_laj : public CreatureScript
@@ -66,9 +60,9 @@ class boss_laj : public CreatureScript
         {
         }
 
-        struct boss_lajAI : public ScriptedAI
+        struct boss_lajAI : public BossAI
         {
-            boss_lajAI(Creature* pCreature) : ScriptedAI(pCreature) {}
+            boss_lajAI(Creature* creature) : BossAI(creature, DATA_LAJ) { }
 
             bool CanSummon;
             uint32 Teleport_Timer;
@@ -163,14 +157,14 @@ class boss_laj : public CreatureScript
                 CanSummon = false;
             }
 
-            void EnterCombat(Unit * /*who*/)
+            void EnterCombat(Unit* /*who*/)
             {
             }
 
-            void JustSummoned(Creature *summon)
+            void JustSummoned(Creature* summon)
             {
                 if (summon && me->getVictim())
-                    summon->AI()->AttackStart(SelectUnit(SELECT_TARGET_RANDOM, 0));
+                    summon->AI()->AttackStart(SelectTarget(SELECT_TARGET_RANDOM, 0));
             }
 
             void UpdateAI(const uint32 diff)
@@ -182,7 +176,7 @@ class boss_laj : public CreatureScript
                 {
                     if (Summon_Timer <= diff)
                     {
-                        DoScriptText(EMOTE_SUMMON, me);
+                        Talk(EMOTE_SUMMON);
                         DoSummons();
                         Summon_Timer = 2500;
                     }
@@ -219,9 +213,9 @@ class boss_laj : public CreatureScript
             }
         };
 
-        CreatureAI* GetAI(Creature* Creature) const
+        CreatureAI* GetAI(Creature* creature) const
         {
-            return new boss_lajAI (Creature);
+            return new boss_lajAI(creature);
         }
 };
 
@@ -229,3 +223,4 @@ void AddSC_boss_laj()
 {
     new boss_laj();
 }
+

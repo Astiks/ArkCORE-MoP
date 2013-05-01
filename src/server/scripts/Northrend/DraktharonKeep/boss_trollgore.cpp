@@ -1,9 +1,5 @@
 /*
- * Copyright (C) 2010 - 2013 ProjectSkyfire <http://www.projectskyfire.org/>
- *
- * Copyright (C) 2011 - 2013 ArkCORE <http://www.arkania.net/>
- * Copyright (C) 2008 - 2013 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -23,7 +19,9 @@
  * Comment: TODO: spawn troll waves
  */
 
-#include "ScriptPCH.h"
+#include "ScriptMgr.h"
+#include "ScriptedCreature.h"
+#include "SpellAuras.h"
 #include "drak_tharon_keep.h"
 
 enum Spells
@@ -41,11 +39,11 @@ enum Spells
 
 enum Yells
 {
-    SAY_AGGRO                                     = -1600006,
-    SAY_KILL                                      = -1600007,
-    SAY_CONSUME                                   = -1600008,
-    SAY_EXPLODE                                   = -1600009,
-    SAY_DEATH                                     = -1600010
+    SAY_AGGRO                                     = 0,
+    SAY_KILL                                      = 1,
+    SAY_CONSUME                                   = 2,
+    SAY_EXPLODE                                   = 3,
+    SAY_DEATH                                     = 4
 };
 
 enum Creatures
@@ -63,16 +61,11 @@ class boss_trollgore : public CreatureScript
 public:
     boss_trollgore() : CreatureScript("boss_trollgore") { }
 
-    CreatureAI* GetAI(Creature* creature) const
-    {
-        return new boss_trollgoreAI (creature);
-    }
-
     struct boss_trollgoreAI : public ScriptedAI
     {
-        boss_trollgoreAI(Creature* c) : ScriptedAI(c), lSummons(me)
+        boss_trollgoreAI(Creature* creature) : ScriptedAI(creature), lSummons(me)
         {
-            instance = c->GetInstanceScript();
+            instance = creature->GetInstanceScript();
         }
 
         uint32 uiConsumeTimer;
@@ -93,7 +86,7 @@ public:
             uiConsumeTimer = 15*IN_MILLISECONDS;
             uiAuraCountTimer = 15500;
             uiCrushTimer = urand(1*IN_MILLISECONDS, 5*IN_MILLISECONDS);
-            uiInfectedWoundTimer = urand(6*IN_MILLISECONDS, 10*IN_MILLISECONDS);
+            uiInfectedWoundTimer = urand(10*IN_MILLISECONDS, 60*IN_MILLISECONDS);
             uiExplodeCorpseTimer = 3*IN_MILLISECONDS;
             uiSpawnTimer = urand(30*IN_MILLISECONDS, 40*IN_MILLISECONDS);
 
@@ -109,7 +102,7 @@ public:
 
         void EnterCombat(Unit* /*who*/)
         {
-            DoScriptText(SAY_AGGRO, me);
+            Talk(SAY_AGGRO);
 
             if (instance)
                 instance->SetData(DATA_TROLLGORE_EVENT, IN_PROGRESS);
@@ -131,7 +124,7 @@ public:
 
             if (uiConsumeTimer <= diff)
             {
-                DoScriptText(SAY_CONSUME, me);
+                Talk(SAY_CONSUME);
                 DoCast(SPELL_CONSUME);
                 uiConsumeTimer = 15*IN_MILLISECONDS;
             } else uiConsumeTimer -= diff;
@@ -158,7 +151,7 @@ public:
             if (uiExplodeCorpseTimer <= diff)
             {
                 DoCast(SPELL_CORPSE_EXPLODE);
-                DoScriptText(SAY_EXPLODE, me);
+                Talk(SAY_EXPLODE);
                 uiExplodeCorpseTimer = urand(15*IN_MILLISECONDS, 19*IN_MILLISECONDS);
             } else uiExplodeCorpseTimer -= diff;
 
@@ -167,7 +160,7 @@ public:
 
         void JustDied(Unit* /*killer*/)
         {
-            DoScriptText(SAY_DEATH, me);
+            Talk(SAY_DEATH);
 
             lSummons.DespawnAll();
 
@@ -175,7 +168,7 @@ public:
                 instance->SetData(DATA_TROLLGORE_EVENT, DONE);
         }
 
-        uint32 GetData(uint32 type)
+        uint32 GetData(uint32 type) const
         {
             if (type == DATA_CONSUMPTION_JUNCTION)
                 return consumptionJunction ? 1 : 0;
@@ -187,7 +180,7 @@ public:
         {
             if (victim == me)
                 return;
-            DoScriptText(SAY_KILL, me);
+            Talk(SAY_KILL);
         }
 
         void JustSummoned(Creature* summon)
@@ -197,6 +190,11 @@ public:
                 summon->AI()->AttackStart(me);
         }
     };
+
+    CreatureAI* GetAI(Creature* creature) const
+    {
+        return new boss_trollgoreAI(creature);
+    }
 };
 
 class achievement_consumption_junction : public AchievementCriteriaScript

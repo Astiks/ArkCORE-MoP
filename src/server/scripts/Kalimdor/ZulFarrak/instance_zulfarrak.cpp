@@ -1,7 +1,5 @@
  /*
- * Copyright (C) 2008 - 2013 TrinityCore <http://www.trinitycore.org/>
- *
- * Copyright (C) 2011 - 2013 ArkCORE <http://www.arkania.net/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -17,8 +15,11 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "ScriptPCH.h"
+#include "ScriptMgr.h"
+#include "InstanceScript.h"
 #include "zulfarrak.h"
+#include "Player.h"
+#include "TemporarySummon.h"
 
 #define NPC_GAHZRILLA 7273
 #define PATH_ADDS 81553
@@ -120,9 +121,21 @@ public:
         void Initialize()
         {
             GahzRillaEncounter = NOT_STARTED;
+            ZumrahGUID = 0;
+            BlyGUID = 0;
+            WeegliGUID = 0;
+            OroGUID = 0;
+            RavenGUID = 0;
+            MurtaGUID = 0;
+            EndDoorGUID = 0;
+            PyramidPhase = 0;
+            major_wave_Timer = 0;
+            minor_wave_Timer = 0;
+            addGroupSize = 0;
+            waypoint = 0;
         }
 
-        void OnCreatureCreate(Creature* creature, bool /*add*/)
+        void OnCreatureCreate(Creature* creature)
         {
             switch (creature->GetEntry())
             {
@@ -158,7 +171,7 @@ public:
             }
         }
 
-        void OnGameObjectCreate(GameObject* go, bool /*add*/)
+        void OnGameObjectCreate(GameObject* go)
         {
             switch (go->GetEntry())
             {
@@ -168,7 +181,7 @@ public:
             }
         }
 
-        uint32 GetData(uint32 type)
+        uint32 GetData(uint32 type) const
         {
             switch (type)
             {
@@ -178,7 +191,7 @@ public:
             return 0;
         }
 
-        uint64 GetData64(uint32 data)
+        uint64 GetData64(uint32 data) const
         {
             switch (data)
             {
@@ -303,14 +316,15 @@ public:
            {
                if (npc->isAlive())
                {
-                    npc->AddUnitMovementFlag(MOVEMENTFLAG_WALKING);
+                    npc->SetWalk(true);
                     npc->GetMotionMaster()->MovePoint(1, x, y, z);
                     npc->SetHomePosition(x, y, z, o);
                }
             }
         }
 
-        void SpawnPyramidWave(uint32 wave){
+        void SpawnPyramidWave(uint32 wave)
+        {
             for (int i = 0; i < pyramidSpawnTotal; i++)
             {
                 if (pyramidSpawns[i][0] == (float)wave)
@@ -323,7 +337,8 @@ public:
             }
         }
 
-        bool IsWaveAllDead(){
+        bool IsWaveAllDead()
+        {
             for (std::list<uint64>::iterator itr = addsAtBase.begin(); itr != addsAtBase.end(); ++itr)
             {
                 if (Creature* add = instance->GetCreature((*itr)))
@@ -357,6 +372,7 @@ public:
             }
         }
     };
+
 };
 
 void AddSC_instance_zulfarrak()

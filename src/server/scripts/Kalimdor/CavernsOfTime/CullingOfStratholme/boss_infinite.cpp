@@ -1,7 +1,5 @@
 /*
- * Copyright (C) 2008 - 2013 TrinityCore <http://www.trinitycore.org/>
- *
- * Copyright (C) 2011 - 2013 ArkCORE <http://www.arkania.net/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -17,7 +15,8 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "ScriptPCH.h"
+#include "ScriptMgr.h"
+#include "ScriptedCreature.h"
 #include "culling_of_stratholme.h"
 
 enum Spells
@@ -28,9 +27,9 @@ enum Spells
 
 enum Yells
 {
-    SAY_AGGRO                                   = -1595045,
-    SAY_FAIL                                    = -1595046,
-    SAY_DEATH                                   = -1595047
+    SAY_AGGRO                                   = 0,
+    SAY_DEATH                                   = 1,
+    SAY_FAIL                                    = 2
 };
 
 class boss_infinite_corruptor : public CreatureScript
@@ -45,9 +44,9 @@ public:
 
     struct boss_infinite_corruptorAI : public ScriptedAI
     {
-        boss_infinite_corruptorAI(Creature* c) : ScriptedAI(c)
+        boss_infinite_corruptorAI(Creature* creature) : ScriptedAI(creature)
         {
-            instance = c->GetInstanceScript();
+            instance = creature->GetInstanceScript();
         }
 
         InstanceScript* instance;
@@ -60,11 +59,12 @@ public:
 
         void EnterCombat(Unit* /*who*/)
         {
+            Talk(SAY_AGGRO);
             if (instance)
                 instance->SetData(DATA_INFINITE_EVENT, IN_PROGRESS);
         }
 
-        void UpdateAI(const uint32 /*diff*/)
+        void UpdateAI(uint32 const /*diff*/)
         {
             //Return since we have no target
             if (!UpdateVictim())
@@ -75,10 +75,12 @@ public:
 
         void JustDied(Unit* /*killer*/)
         {
+            Talk(SAY_DEATH);
             if (instance)
                 instance->SetData(DATA_INFINITE_EVENT, DONE);
         }
     };
+
 };
 
 void AddSC_boss_infinite_corruptor()

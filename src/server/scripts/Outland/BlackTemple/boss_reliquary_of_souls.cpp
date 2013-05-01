@@ -1,25 +1,19 @@
 /*
- * Copyright (C) 2005 - 2013 MaNGOS <http://www.getmangos.com/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
- * Copyright (C) 2008 - 2013 Trinity <http://www.trinitycore.org/>
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2 of the License, or (at your
+ * option) any later version.
  *
- * Copyright (C) 2006 - 2013 ScriptDev2 <http://www.scriptdev2.com/>
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
  *
- * Copyright (C) 2010 - 2013 ArkCORE <http://www.arkania.net/>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 /* ScriptData
@@ -29,68 +23,66 @@ SDComment:
 SDCategory: Black Temple
 EndScriptData */
 
-#include "ScriptPCH.h"
+#include "ScriptMgr.h"
+#include "ScriptedCreature.h"
 #include "black_temple.h"
 #include "Spell.h"
 
-//Sound'n'speech
-//Suffering
-#define SUFF_SAY_FREED              -1564047
-#define SUFF_SAY_AGGRO              -1564048
-#define SUFF_SAY_SLAY1              -1564049
-#define SUFF_SAY_SLAY2              -1564050
-#define SUFF_SAY_SLAY3              -1564051
-#define SUFF_SAY_RECAP              -1564052
-#define SUFF_SAY_AFTER              -1564053
-#define SUFF_EMOTE_ENRAGE           -1564054
+enum ReliquaryOfSouls
+{
+    //Sound'n'speech
+    //Suffering
+    SUFF_SAY_FREED                  = 0,
+    SUFF_SAY_AGGRO                  = 1,
+    SUFF_SAY_SLAY                   = 2,
+    SUFF_SAY_RECAP                  = 3,
+    SUFF_SAY_AFTER                  = 4,
+    SUFF_EMOTE_ENRAGE               = 5,
 
-//Desire
-#define DESI_SAY_FREED              -1564055
-#define DESI_SAY_SLAY1              -1564056
-#define DESI_SAY_SLAY2              -1564057
-#define DESI_SAY_SLAY3              -1564058
-#define DESI_SAY_SPEC               -1564059
-#define DESI_SAY_RECAP              -1564060
-#define DESI_SAY_AFTER              -1564061
+    //Desire
+    DESI_SAY_FREED                  = 0,
+    DESI_SAY_SLAY                   = 1,
+    DESI_SAY_SPEC                   = 2,
+    DESI_SAY_RECAP                  = 3,
+    DESI_SAY_AFTER                  = 4,
 
-//Anger
-#define ANGER_SAY_FREED             -1564062
-#define ANGER_SAY_FREED2            -1564063
-#define ANGER_SAY_SLAY1             -1564064
-#define ANGER_SAY_SLAY2             -1564065
-#define ANGER_SAY_SPEC              -1564066
-#define ANGER_SAY_BEFORE            -1564067
-#define ANGER_SAY_DEATH             -1564068
+    //Anger
+    ANGER_SAY_FREED                 = 0,
+    ANGER_SAY_SLAY                  = 1,
+    ANGER_SAY_SPEC                  = 2,
+    ANGER_SAY_BEFORE                = 3,
+    ANGER_SAY_DEATH                 = 4,
 
-//Spells
-#define AURA_OF_SUFFERING               41292
-#define AURA_OF_SUFFERING_ARMOR         42017 // linked aura, need core support
-#define ESSENCE_OF_SUFFERING_PASSIVE    41296 // periodic trigger 41294
-#define ESSENCE_OF_SUFFERING_PASSIVE2   41623
-#define SPELL_FIXATE_TARGET             41294 // dummy, select target
-#define SPELL_FIXATE_TAUNT              41295 // force taunt
-#define SPELL_ENRAGE                    41305
-#define SPELL_SOUL_DRAIN                41303
+    //Spells
+    AURA_OF_SUFFERING               = 41292,
+    AURA_OF_SUFFERING_ARMOR         = 42017, // linked aura, need core support
+    ESSENCE_OF_SUFFERING_PASSIVE    = 41296, // periodic trigger 41294
+    ESSENCE_OF_SUFFERING_PASSIVE2   = 41623,
+    SPELL_FIXATE_TARGET             = 41294, // dummy, select target
+    SPELL_FIXATE_TAUNT              = 41295, // force taunt
+    SPELL_ENRAGE                    = 41305,
+    SPELL_SOUL_DRAIN                = 41303,
 
-#define AURA_OF_DESIRE                  41350
-#define AURA_OF_DESIRE_DAMAGE           41352
-#define SPELL_RUNE_SHIELD               41431
-#define SPELL_DEADEN                    41410
-#define SPELL_SOUL_SHOCK                41426
+    AURA_OF_DESIRE                  = 41350,
+    AURA_OF_DESIRE_DAMAGE           = 41352,
+    SPELL_RUNE_SHIELD               = 41431,
+    SPELL_DEADEN                    = 41410,
+    SPELL_SOUL_SHOCK                = 41426,
 
-#define AURA_OF_ANGER                   41337
-#define SPELL_SELF_SEETHE               41364 // force cast 41520
-#define SPELL_ENEMY_SEETHE              41520
-#define SPELL_SOUL_SCREAM               41545
-#define SPELL_SPITE_TARGET              41376 // cast 41377 after 6 sec
-#define SPELL_SPITE_DAMAGE              41377
+    AURA_OF_ANGER                   = 41337,
+    SPELL_SELF_SEETHE               = 41364, // force cast 41520
+    SPELL_ENEMY_SEETHE              = 41520,
+    SPELL_SOUL_SCREAM               = 41545,
+    SPELL_SPITE_TARGET              = 41376, // cast 41377 after 6 sec
+    SPELL_SPITE_DAMAGE              = 41377,
 
-#define ENSLAVED_SOUL_PASSIVE           41535
-#define SPELL_SOUL_RELEASE              41542
-#define SPELL_SUBMERGE                  37550 //dropout 'head'
+    ENSLAVED_SOUL_PASSIVE           = 41535,
+    SPELL_SOUL_RELEASE              = 41542,
+    SPELL_SUBMERGE                  = 37550, //dropout 'head'
 
-#define CREATURE_ENSLAVED_SOUL          23469
-#define NUMBER_ENSLAVED_SOUL            8
+    CREATURE_ENSLAVED_SOUL          = 23469,
+    NUMBER_ENSLAVED_SOUL            = 8
+};
 
 struct Position2d
 {
@@ -112,14 +104,14 @@ class npc_enslaved_soul : public CreatureScript
 public:
     npc_enslaved_soul() : CreatureScript("npc_enslaved_soul") { }
 
-    CreatureAI* GetAI(Creature* pCreature) const
+    CreatureAI* GetAI(Creature* creature) const
     {
-        return new npc_enslaved_soulAI (pCreature);
+        return new npc_enslaved_soulAI (creature);
     }
 
     struct npc_enslaved_soulAI : public ScriptedAI
     {
-        npc_enslaved_soulAI(Creature *c) : ScriptedAI(c) {}
+        npc_enslaved_soulAI(Creature* creature) : ScriptedAI(creature) {}
 
         uint64 ReliquaryGUID;
 
@@ -131,7 +123,7 @@ public:
             DoZoneInCombat();
         }
 
-        void JustDied(Unit * /*killer*/);
+        void JustDied(Unit* /*killer*/);
     };
 };
 
@@ -140,20 +132,20 @@ class boss_reliquary_of_souls : public CreatureScript
 public:
     boss_reliquary_of_souls() : CreatureScript("boss_reliquary_of_souls") { }
 
-    CreatureAI* GetAI(Creature* pCreature) const
+    CreatureAI* GetAI(Creature* creature) const
     {
-        return new boss_reliquary_of_soulsAI (pCreature);
+        return new boss_reliquary_of_soulsAI (creature);
     }
 
     struct boss_reliquary_of_soulsAI : public ScriptedAI
     {
-        boss_reliquary_of_soulsAI(Creature *c) : ScriptedAI(c)
+        boss_reliquary_of_soulsAI(Creature* creature) : ScriptedAI(creature)
         {
-            pInstance = c->GetInstanceScript();
+            instance = creature->GetInstanceScript();
             EssenceGUID = 0;
         }
 
-        InstanceScript* pInstance;
+        InstanceScript* instance;
 
         uint64 EssenceGUID;
 
@@ -166,14 +158,14 @@ public:
 
         void Reset()
         {
-            if (pInstance)
-                pInstance->SetData(DATA_RELIQUARYOFSOULSEVENT, NOT_STARTED);
+            if (instance)
+                instance->SetData(DATA_RELIQUARYOFSOULSEVENT, NOT_STARTED);
 
             if (EssenceGUID)
             {
                 if (Creature* Essence = Unit::GetCreature(*me, EssenceGUID))
                 {
-                    Essence->ForcedDespawn();
+                    Essence->DespawnOrUnsummon();
                 }
                 EssenceGUID = 0;
             }
@@ -185,12 +177,29 @@ public:
             me->RemoveAurasDueToSpell(SPELL_SUBMERGE);
         }
 
+        void MoveInLineOfSight(Unit* who)
+        {
+            if (!who)
+                return;
+
+            if (me->isInCombat())
+                return;
+
+            if (who->GetTypeId() != TYPEID_PLAYER)
+                return;
+
+            if (me->GetDistance(who) > 50.0f)
+                return;
+
+            AttackStartNoMove(who);
+        }
+
         void EnterCombat(Unit* who)
         {
             me->AddThreat(who, 10000.0f);
             DoZoneInCombat();
-            if (pInstance)
-                pInstance->SetData(DATA_RELIQUARYOFSOULSEVENT, IN_PROGRESS);
+            if (instance)
+                instance->SetData(DATA_RELIQUARYOFSOULSEVENT, IN_PROGRESS);
 
             Phase = 1;
             Counter = 0;
@@ -202,39 +211,41 @@ public:
             uint32 random = rand()%6;
             float x = Coords[random].x;
             float y = Coords[random].y;
+
             Creature* Soul = me->SummonCreature(CREATURE_ENSLAVED_SOUL, x, y, me->GetPositionZ(), me->GetOrientation(), TEMPSUMMON_CORPSE_DESPAWN, 0);
-            if (!Soul) return false;
-            if (Unit *pTarget = SelectUnit(SELECT_TARGET_RANDOM, 0))
+            if (!Soul)
+                return false;
+
+            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
             {
                 CAST_AI(npc_enslaved_soul::npc_enslaved_soulAI, Soul->AI())->ReliquaryGUID = me->GetGUID();
-                Soul->AI()->AttackStart(pTarget);
+                Soul->AI()->AttackStart(target);
             } else EnterEvadeMode();
             return true;
         }
 
-        void MergeThreatList(Creature *pTarget)
+        void MergeThreatList(Creature* target)
         {
-            if (!pTarget)
+            if (!target)
                 return;
 
-            std::list<HostileReference*>& m_threatlist = pTarget->getThreatManager().getThreatList();
-            std::list<HostileReference*>::const_iterator itr = m_threatlist.begin();
-            for (; itr != m_threatlist.end(); ++itr)
+            ThreatContainer::StorageType threatlist = target->getThreatManager().getThreatList();
+            for (ThreatContainer::StorageType::const_iterator itr = threatlist.begin(); itr != threatlist.end(); ++itr)
             {
-                Unit* pUnit = Unit::GetUnit((*me), (*itr)->getUnitGuid());
-                if (pUnit)
+                Unit* unit = Unit::GetUnit(*me, (*itr)->getUnitGuid());
+                if (unit)
                 {
-                    DoModifyThreatPercent(pUnit, -100);
-                    float threat = pTarget->getThreatManager().getThreat(pUnit);
-                    me->AddThreat(pUnit, threat);       // This makes it so that the unit has the same amount of threat in Reliquary's threatlist as in the target creature's (One of the Essences).
+                    DoModifyThreatPercent(unit, -100);
+                    float threat = target->getThreatManager().getThreat(unit);
+                    me->AddThreat(unit, threat);       // This makes it so that the unit has the same amount of threat in Reliquary's threatlist as in the target creature's (One of the Essences).
                 }
             }
         }
 
         void JustDied(Unit* /*killer*/)
         {
-            if (pInstance)
-                pInstance->SetData(DATA_RELIQUARYOFSOULSEVENT, DONE);
+            if (instance)
+                instance->SetData(DATA_RELIQUARYOFSOULSEVENT, DONE);
         }
 
         void UpdateAI(const uint32 diff)
@@ -279,7 +290,7 @@ public:
                     if (Creature* Summon = DoSpawnCreature(23417+Phase, 0, 0, 0, 0, TEMPSUMMON_DEAD_DESPAWN, 0))
                     {
                         me->SetUInt32Value(UNIT_NPC_EMOTESTATE, EMOTE_STATE_SUBMERGED);  // Ribs: open
-                        Summon->AI()->AttackStart(SelectUnit(SELECT_TARGET_TOPAGGRO, 0));
+                        Summon->AI()->AttackStart(SelectTarget(SELECT_TARGET_TOPAGGRO, 0));
                         EssenceGUID = Summon->GetGUID();
                         DoStartNoMovement(me);
                     } else EnterEvadeMode();
@@ -323,13 +334,13 @@ public:
                 case 5:
                     if (Phase == 1)
                     {
-                        DoScriptText(SUFF_SAY_AFTER, Essence);
+                        Essence->AI()->Talk(SUFF_SAY_AFTER);
                     }
                     else
                     {
-                        DoScriptText(DESI_SAY_AFTER, Essence);
+                        Essence->AI()->Talk(DESI_SAY_AFTER);
                     }
-                    Essence->ForcedDespawn();
+                    Essence->DespawnOrUnsummon();
                     me->SetUInt32Value(UNIT_NPC_EMOTESTATE, 0);
                     EssenceGUID = 0;
                     SoulCount = 0;
@@ -362,10 +373,10 @@ public:
     };
 };
 
-void npc_enslaved_soul::npc_enslaved_soulAI::JustDied(Unit * /*killer*/)
+void npc_enslaved_soul::npc_enslaved_soulAI::JustDied(Unit* /*killer*/)
 {
     if (ReliquaryGUID)
-        if (Creature *Reliquary = (Unit::GetCreature((*me), ReliquaryGUID)))
+        if (Creature* Reliquary = (Unit::GetCreature((*me), ReliquaryGUID)))
             ++(CAST_AI(boss_reliquary_of_souls::boss_reliquary_of_soulsAI, Reliquary->AI())->SoulDeathCount);
 
     DoCast(me, SPELL_SOUL_RELEASE, true);
@@ -376,14 +387,14 @@ class boss_essence_of_suffering : public CreatureScript
 public:
     boss_essence_of_suffering() : CreatureScript("boss_essence_of_suffering") { }
 
-    CreatureAI* GetAI(Creature* pCreature) const
+    CreatureAI* GetAI(Creature* creature) const
     {
-        return new boss_essence_of_sufferingAI (pCreature);
+        return new boss_essence_of_sufferingAI (creature);
     }
 
     struct boss_essence_of_sufferingAI : public ScriptedAI
     {
-        boss_essence_of_sufferingAI(Creature *c) : ScriptedAI(c) {}
+        boss_essence_of_sufferingAI(Creature* creature) : ScriptedAI(creature) {}
 
         uint64 StatAuraGUID;
 
@@ -404,22 +415,23 @@ public:
             AuraTimer = 5000;
         }
 
-        void DamageTaken(Unit * /*done_by*/, uint32 &damage)
+        void DamageTaken(Unit* /*done_by*/, uint32 &damage)
         {
             if (damage >= me->GetHealth())
             {
                 damage = 0;
                 me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
                 me->Yell(SUFF_SAY_RECAP, LANG_UNIVERSAL, 0);
-                DoScriptText(SUFF_SAY_RECAP, me);
+                Talk(SUFF_SAY_RECAP);
+                me->SetReactState(REACT_PASSIVE);
             }
         }
 
-        void EnterCombat(Unit * /*who*/)
+        void EnterCombat(Unit* /*who*/)
         {
             if (!me->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE))
                 {
-                DoScriptText(SUFF_SAY_FREED, me);
+                Talk(SUFF_SAY_FREED);
                 DoZoneInCombat();
                 DoCast(me, AURA_OF_SUFFERING, true); // linked aura need core support
                 DoCast(me, ESSENCE_OF_SUFFERING_PASSIVE, true);
@@ -428,33 +440,33 @@ public:
             else return;
         }
 
-        void KilledUnit(Unit * /*victim*/)
+        void KilledUnit(Unit* /*victim*/)
         {
-            DoScriptText(RAND(SUFF_SAY_SLAY1, SUFF_SAY_SLAY2, SUFF_SAY_SLAY3), me);
+            Talk(SUFF_SAY_SLAY);
         }
 
         void CastFixate()
         {
-            std::list<HostileReference*>& m_threatlist = me->getThreatManager().getThreatList();
-            if (m_threatlist.empty())
+            ThreatContainer::StorageType const &threatlist = me->getThreatManager().getThreatList();
+            if (threatlist.empty())
                 return; // No point continuing if empty threatlist.
             std::list<Unit*> targets;
-            std::list<HostileReference*>::const_iterator itr = m_threatlist.begin();
-            for (; itr != m_threatlist.end(); ++itr)
+            ThreatContainer::StorageType::const_iterator itr = threatlist.begin();
+            for (; itr != threatlist.end(); ++itr)
             {
-                Unit* pUnit = Unit::GetUnit((*me), (*itr)->getUnitGuid());
-                if (pUnit && pUnit->isAlive() && (pUnit->GetTypeId() == TYPEID_PLAYER)) // Only alive players
-                    targets.push_back(pUnit);
+                Unit* unit = Unit::GetUnit(*me, (*itr)->getUnitGuid());
+                if (unit && unit->isAlive() && (unit->GetTypeId() == TYPEID_PLAYER)) // Only alive players
+                    targets.push_back(unit);
             }
             if (targets.empty())
                 return; // No targets added for some reason. No point continuing.
             targets.sort(Trinity::ObjectDistanceOrderPred(me)); // Sort players by distance.
             targets.resize(1); // Only need closest target.
-            Unit *pTarget = targets.front(); // Get the first target.
-            if (pTarget)
-                pTarget->CastSpell(me, SPELL_FIXATE_TAUNT, true);
+            Unit* target = targets.front(); // Get the first target.
+            if (target)
+                target->CastSpell(me, SPELL_FIXATE_TAUNT, true);
             DoResetThreat();
-            me->AddThreat(pTarget, 1000000);
+            me->AddThreat(target, 1000000);
         }
 
         void UpdateAI(const uint32 diff)
@@ -468,7 +480,7 @@ public:
                     FixateTimer = 5000;
                     if (!(rand()%16))
                     {
-                        DoScriptText(SUFF_SAY_AGGRO, me);
+                        Talk(SUFF_SAY_AGGRO);
                     }
                 } else FixateTimer -= diff;
             }
@@ -481,12 +493,12 @@ public:
             {
                 DoCast(me, SPELL_ENRAGE);
                 EnrageTimer = 60000;
-                DoScriptText(SUFF_EMOTE_ENRAGE, me);
+                Talk(SUFF_EMOTE_ENRAGE);
             } else EnrageTimer -= diff;
 
             if (SoulDrainTimer <= diff)
             {
-                DoCast(SelectUnit(SELECT_TARGET_RANDOM, 0), SPELL_SOUL_DRAIN);
+                DoCast(SelectTarget(SELECT_TARGET_RANDOM, 0), SPELL_SOUL_DRAIN);
                 SoulDrainTimer = 60000;
             } else SoulDrainTimer -= diff;
 
@@ -500,14 +512,14 @@ class boss_essence_of_desire : public CreatureScript
 public:
     boss_essence_of_desire() : CreatureScript("boss_essence_of_desire") { }
 
-    CreatureAI* GetAI(Creature* pCreature) const
+    CreatureAI* GetAI(Creature* creature) const
     {
-        return new boss_essence_of_desireAI (pCreature);
+        return new boss_essence_of_desireAI (creature);
     }
 
     struct boss_essence_of_desireAI : public ScriptedAI
     {
-        boss_essence_of_desireAI(Creature *c) : ScriptedAI(c) {}
+        boss_essence_of_desireAI(Creature* creature) : ScriptedAI(creature) {}
 
         uint32 RuneShieldTimer;
         uint32 DeadenTimer;
@@ -521,7 +533,7 @@ public:
             me->ApplySpellImmune(0, IMMUNITY_STATE, SPELL_AURA_MOD_CONFUSE, true);
         }
 
-        void DamageTaken(Unit *done_by, uint32 &damage)
+        void DamageTaken(Unit* done_by, uint32 &damage)
         {
             if (done_by == me)
                 return;
@@ -530,7 +542,8 @@ public:
             {
                 damage = 0;
                 me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-                DoScriptText(SUFF_SAY_RECAP, me);
+                Talk(SUFF_SAY_RECAP);
+                me->SetReactState(REACT_PASSIVE);
             }
             else
             {
@@ -539,26 +552,26 @@ public:
             }
         }
 
-        void SpellHit(Unit * /*caster*/, const SpellEntry *spell)
+        void SpellHit(Unit* /*caster*/, const SpellInfo* spell)
         {
             if (me->GetCurrentSpell(CURRENT_GENERIC_SPELL))
                 for (uint8 i = 0; i < 3; ++i)
-                    if (spell->Effect[i] == SPELL_EFFECT_INTERRUPT_CAST)
+                    if (spell->Effects[i].Effect == SPELL_EFFECT_INTERRUPT_CAST)
                         if (me->GetCurrentSpell(CURRENT_GENERIC_SPELL)->m_spellInfo->Id == SPELL_SOUL_SHOCK
                             || me->GetCurrentSpell(CURRENT_GENERIC_SPELL)->m_spellInfo->Id == SPELL_DEADEN)
                             me->InterruptSpell(CURRENT_GENERIC_SPELL, false);
         }
 
-        void EnterCombat(Unit * /*who*/)
+        void EnterCombat(Unit* /*who*/)
         {
-            DoScriptText(DESI_SAY_FREED, me);
+            Talk(DESI_SAY_FREED);
             DoZoneInCombat();
             DoCast(me, AURA_OF_DESIRE, true);
         }
 
-        void KilledUnit(Unit * /*victim*/)
+        void KilledUnit(Unit* /*victim*/)
         {
-            DoScriptText(RAND(DESI_SAY_SLAY1, DESI_SAY_SLAY2, DESI_SAY_SLAY3), me);
+            Talk(DESI_SAY_SLAY);
         }
 
         void UpdateAI(const uint32 diff)
@@ -585,10 +598,10 @@ public:
             {
                 me->InterruptNonMeleeSpells(false);
                 DoCast(me->getVictim(), SPELL_DEADEN);
-                DeadenTimer = 25000 + rand()%10000;
+                DeadenTimer = urand(25000, 35000);
                 if (!(rand()%2))
                 {
-                    DoScriptText(DESI_SAY_SPEC, me);
+                    Talk(DESI_SAY_SPEC);
                 }
             } else DeadenTimer -= diff;
 
@@ -602,14 +615,14 @@ class boss_essence_of_anger : public CreatureScript
 public:
     boss_essence_of_anger() : CreatureScript("boss_essence_of_anger") { }
 
-    CreatureAI* GetAI(Creature* pCreature) const
+    CreatureAI* GetAI(Creature* creature) const
     {
-        return new boss_essence_of_angerAI (pCreature);
+        return new boss_essence_of_angerAI (creature);
     }
 
     struct boss_essence_of_angerAI : public ScriptedAI
     {
-        boss_essence_of_angerAI(Creature *c) : ScriptedAI(c) {}
+        boss_essence_of_angerAI(Creature* creature) : ScriptedAI(creature) {}
 
         uint64 AggroTargetGUID;
 
@@ -634,22 +647,22 @@ public:
             CheckedAggro = false;
         }
 
-        void EnterCombat(Unit * /*who*/)
+        void EnterCombat(Unit* /*who*/)
         {
-            DoScriptText(RAND(ANGER_SAY_FREED, ANGER_SAY_FREED2), me);
+            Talk(ANGER_SAY_FREED);
 
             DoZoneInCombat();
             DoCast(me, AURA_OF_ANGER, true);
         }
 
-        void JustDied(Unit * /*victim*/)
+        void JustDied(Unit* /*killer*/)
         {
-            DoScriptText(ANGER_SAY_DEATH, me);
+            Talk(ANGER_SAY_DEATH);
         }
 
-        void KilledUnit(Unit * /*victim*/)
+        void KilledUnit(Unit* /*victim*/)
         {
-            DoScriptText(RAND(ANGER_SAY_SLAY1, ANGER_SAY_SLAY2), me);
+            Talk(ANGER_SAY_SLAY);
         }
 
         void UpdateAI(const uint32 diff)
@@ -668,7 +681,7 @@ public:
             {
                 if (me->getVictim()->GetGUID() != AggroTargetGUID)
                 {
-                    DoScriptText(ANGER_SAY_BEFORE, me);
+                    Talk(ANGER_SAY_BEFORE);
                     DoCast(me, SPELL_SELF_SEETHE, true);
                     AggroTargetGUID = me->getVictim()->GetGUID();
                 }
@@ -678,10 +691,10 @@ public:
             if (SoulScreamTimer <= diff)
             {
                 DoCast(me->getVictim(), SPELL_SOUL_SCREAM);
-                SoulScreamTimer = 9000 + rand()%2000;
+                SoulScreamTimer = urand(9000, 11000);
                 if (!(rand()%3))
                 {
-                    DoScriptText(ANGER_SAY_SPEC, me);
+                    Talk(ANGER_SAY_SPEC);
                 }
             } else SoulScreamTimer -= diff;
 
@@ -689,7 +702,7 @@ public:
             {
                 DoCast(me, SPELL_SPITE_TARGET);
                 SpiteTimer = 30000;
-                DoScriptText(ANGER_SAY_SPEC, me);
+                Talk(ANGER_SAY_SPEC);
             } else SpiteTimer -= diff;
 
             DoMeleeAttackIfReady();

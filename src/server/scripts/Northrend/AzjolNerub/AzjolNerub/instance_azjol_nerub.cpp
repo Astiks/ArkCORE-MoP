@@ -1,11 +1,5 @@
 /*
- * Copyright (C) 2005 - 2013 MaNGOS <http://www.getmangos.com/>
- *
- * Copyright (C) 2008 - 2013 Trinity <http://www.trinitycore.org/>
- *
- * Copyright (C) 2010 - 2013 ProjectSkyfire <http://www.projectskyfire.org/>
- *
- * Copyright (C) 2011 - 2013 ArkCORE <http://www.arkania.net/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -21,7 +15,8 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "ScriptPCH.h"
+#include "ScriptMgr.h"
+#include "InstanceScript.h"
 #include "azjol_nerub.h"
 
 #define MAX_ENCOUNTER     3
@@ -70,12 +65,13 @@ public:
         bool IsEncounterInProgress() const
         {
             for (uint8 i = 0; i < MAX_ENCOUNTER; ++i)
-                if (auiEncounter[i] == IN_PROGRESS) return true;
+                if (auiEncounter[i] == IN_PROGRESS)
+                    return true;
 
             return false;
         }
 
-        void OnCreatureCreate(Creature* creature, bool /*add*/)
+        void OnCreatureCreate(Creature* creature)
         {
             switch (creature->GetEntry())
             {
@@ -88,7 +84,7 @@ public:
             }
         }
 
-        void OnGameObjectCreate(GameObject* go, bool /*add*/)
+        void OnGameObjectCreate(GameObject* go)
         {
             switch (go->GetEntry())
             {
@@ -109,7 +105,7 @@ public:
             }
         }
 
-        uint64 GetData64(uint32 identifier)
+        uint64 GetData64(uint32 identifier) const
         {
             switch (identifier)
             {
@@ -153,7 +149,7 @@ public:
             }
         }
 
-        uint32 GetData(uint32 type)
+        uint32 GetData(uint32 type) const
         {
             switch (type)
             {
@@ -202,6 +198,7 @@ public:
                 for (uint8 i = 0; i < MAX_ENCOUNTER; ++i)
                     if (auiEncounter[i] == IN_PROGRESS)
                         auiEncounter[i] = NOT_STARTED;
+
             } else OUT_LOAD_INST_DATA_FAIL;
 
             OUT_LOAD_INST_DATA_COMPLETE;

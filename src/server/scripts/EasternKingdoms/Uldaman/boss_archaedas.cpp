@@ -1,9 +1,5 @@
 /*
- * Copyright (C) 2005 - 2013 MaNGOS <http://www.getmangos.com/>
- *
- * Copyright (C) 2008 - 2013 Trinity <http://www.trinitycore.org/>
- *
- * Copyright (C) 2010 - 2013 ArkCORE <http://www.arkania.net/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2006-2007 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -30,22 +26,20 @@ At 33%, he will awaken the Vault Walkers
 On his death the vault door opens.
 EndScriptData */
 
-#include "ScriptPCH.h"
+#include "ScriptMgr.h"
+#include "ScriptedCreature.h"
 #include "uldaman.h"
+#include "Player.h"
 
-#define SAY_AGGRO           "Who dares awaken Archaedas? Who dares the wrath of the makers!"
-#define SOUND_AGGRO         5855
+enum Says
+{
+    SAY_AGGRO                   = 0,
+    SAY_SUMMON_GUARDIANS        = 1,
+    SAY_SUMMON_VAULT_WALKERS    = 2,
+    SAY_KILL                    = 3
+};
 
-#define SAY_SUMMON          "Awake ye servants, defend the discs!"
-#define SOUND_SUMMON        5856
-
-#define SAY_SUMMON2         "To my side, brothers. For the makers!"
-#define SOUND_SUMMON2       5857
-
-#define SAY_KILL            "Reckless mortal."
-#define SOUND_KILL          5858
-
-enum eSpells
+enum Spells
 {
     SPELL_GROUND_TREMOR              = 6524,
     SPELL_ARCHAEDAS_AWAKEN           = 10347,
@@ -54,6 +48,7 @@ enum eSpells
     SPELL_SUB_BOSS_AGGRO             = 11568,
     SPELL_AWAKEN_VAULT_WALKER        = 10258,
     SPELL_AWAKEN_EARTHEN_GUARDIAN    = 10252,
+    SPELL_SELF_DESTRUCT              = 9874
 };
 
 class boss_archaedas : public CreatureScript
@@ -98,14 +93,17 @@ class boss_archaedas : public CreatureScript
                 me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_DISABLE_MOVE);
             }
 
-            void ActivateMinion(uint64 uiGuid, bool bFlag)
+            void ActivateMinion(uint64 uiGuid, bool flag)
             {
-                Unit* pMinion = Unit::GetUnit(*me, uiGuid);
+                Unit* minion = Unit::GetUnit(*me, uiGuid);
 
-                if (pMinion && pMinion->isAlive())
+                if (minion && minion->isAlive())
                 {
-                    DoCast(pMinion, SPELL_AWAKEN_VAULT_WALKER, bFlag);
-                    pMinion->CastSpell(pMinion, SPELL_ARCHAEDAS_AWAKEN, true);
+                    DoCast(minion, SPELL_AWAKEN_VAULT_WALKER, flag);
+                    minion->CastSpell(minion, SPELL_ARCHAEDAS_AWAKEN, true);
+                    minion->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+                    minion->RemoveFlag(UNIT_FIELD_FLAGS,UNIT_FLAG_DISABLE_MOVE);
+                    minion->setFaction(14);
                 }
             }
 
@@ -116,13 +114,12 @@ class boss_archaedas : public CreatureScript
                 me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_DISABLE_MOVE);
             }
 
-            void SpellHit(Unit* /*caster*/, const SpellEntry* spell)
+            void SpellHit(Unit* /*caster*/, const SpellInfo* spell)
             {
                 // Being woken up from the altar, start the awaken sequence
-                if (spell == sSpellStore.LookupEntry(SPELL_ARCHAEDAS_AWAKEN))
+                if (spell == sSpellMgr->GetSpellInfo(SPELL_ARCHAEDAS_AWAKEN))
                 {
-                    me->MonsterYell(SAY_AGGRO, LANG_UNIVERSAL, 0);
-                    DoPlaySoundToSet(me, SOUND_AGGRO);
+                    Talk(SAY_AGGRO);
                     iAwakenTimer = 4000;
                     bWakingUp = true;
                 }
@@ -130,8 +127,7 @@ class boss_archaedas : public CreatureScript
 
             void KilledUnit(Unit* /*victim*/)
             {
-                me->MonsterYell(SAY_KILL, LANG_UNIVERSAL, 0);
-                DoPlaySoundToSet(me, SOUND_KILL);
+                Talk(SAY_KILL);
             }
 
             void UpdateAI(const uint32 uiDiff)
@@ -157,7 +153,7 @@ class boss_archaedas : public CreatureScript
                 // wake a wall minion
                 if (uiWallMinionTimer <= uiDiff)
                 {
-                    instance->SetData (DATA_MINIONS, IN_PROGRESS);
+                    instance->SetData(DATA_MINIONS, IN_PROGRESS);
 
                     uiWallMinionTimer = 10000;
                 } else uiWallMinionTimer -= uiDiff;
@@ -171,8 +167,7 @@ class boss_archaedas : public CreatureScript
                     ActivateMinion(instance->GetData64(8), true);   // EarthenGuardian4
                     ActivateMinion(instance->GetData64(9), true);   // EarthenGuardian5
                     ActivateMinion(instance->GetData64(10), false); // EarthenGuardian6
-                    me->MonsterYell(SAY_SUMMON, LANG_UNIVERSAL, 0);
-                    DoPlaySoundToSet(me, SOUND_SUMMON);
+                    Talk(SAY_SUMMON_GUARDIANS);
                     bGuardiansAwake = true;
                 }
 
@@ -183,8 +178,7 @@ class boss_archaedas : public CreatureScript
                     ActivateMinion(instance->GetData64(2), true);    // VaultWalker2
                     ActivateMinion(instance->GetData64(3), true);    // VaultWalker3
                     ActivateMinion(instance->GetData64(4), false);    // VaultWalker4
-                    me->MonsterYell(SAY_SUMMON2, LANG_UNIVERSAL, 0);
-                    DoPlaySoundToSet(me, SOUND_SUMMON2);
+                    Talk(SAY_SUMMON_VAULT_WALKERS);
                     bVaultWalkersAwake = true;
                 }
 
@@ -223,8 +217,6 @@ SDComment: These mobs are initially frozen until Archaedas awakens them
 one at a time.
 EndScriptData */
 
-#define SPELL_ARCHAEDAS_AWAKEN  10347
-
 class mob_archaedas_minions : public CreatureScript
 {
     public:
@@ -236,7 +228,7 @@ class mob_archaedas_minions : public CreatureScript
 
         struct mob_archaedas_minionsAI : public ScriptedAI
         {
-            mob_archaedas_minionsAI(Creature* c) : ScriptedAI(c)
+            mob_archaedas_minionsAI(Creature* creature) : ScriptedAI(creature)
             {
                 instance = me->GetInstanceScript();
             }
@@ -271,9 +263,9 @@ class mob_archaedas_minions : public CreatureScript
                 bAmIAwake = true;
             }
 
-            void SpellHit (Unit* /*caster*/, const SpellEntry* spell) {
+            void SpellHit (Unit* /*caster*/, const SpellInfo* spell) {
                 // time to wake up, start animation
-                if (spell == sSpellStore.LookupEntry(SPELL_ARCHAEDAS_AWAKEN))
+                if (spell == sSpellMgr->GetSpellInfo(SPELL_ARCHAEDAS_AWAKEN))
                 {
                     iAwakenTimer = 5000;
                     bWakingUp = true;
@@ -321,8 +313,6 @@ SD%Complete: 100
 SDComment: After activating the altar of the keepers, the stone keepers will
 wake up one by one.
 EndScriptData */
-
-#define SPELL_SELF_DESTRUCT 9874
 
 class mob_stonekeepers : public CreatureScript
 {
@@ -387,8 +377,6 @@ SDComment: Needs 1 person to activate the Archaedas script
 SDCategory: Uldaman
 EndScriptData */
 
-#define SPELL_BOSS_OBJECT_VISUAL    11206
-
 class go_altar_of_archaedas : public GameObjectScript
 {
     public:
@@ -398,7 +386,7 @@ class go_altar_of_archaedas : public GameObjectScript
         {
         }
 
-        bool OnGossipHello(Player* player, GameObject* /*pGO*/)
+        bool OnGossipHello(Player* player, GameObject* /*go*/)
         {
             InstanceScript* instance = player->GetInstanceScript();
             if (!instance)
@@ -417,8 +405,6 @@ SD%Complete: 100
 SDComment: Need 1 person to activate to open the altar.  One by one the StoneKeepers will activate.  After all four are dead than the door will open.
 SDCategory: Uldaman
 EndScriptData */
-
-#define SPELL_BOSS_OBJECT_VISUAL    11206
 
 class go_altar_of_the_keepers : public GameObjectScript
 {

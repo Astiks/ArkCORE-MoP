@@ -1,4 +1,4 @@
-// $Id: ACE.cpp 95676 2012-04-03 16:32:27Z schmidt $
+// $Id: ACE.cpp 96017 2012-08-08 22:18:09Z mitza $
 
 #include "ace/ACE.h"
 
@@ -51,6 +51,7 @@ namespace ACE
   // Keeps track of whether we're in some global debug mode.
   char debug_;
 }
+
 
 int
 ACE::out_of_handles (int error)
@@ -2303,7 +2304,7 @@ ACE::format_hexdump (const char *buffer,
                                ACE_TEXT (" "));
               ++obuf;
             }
-          textver[j] = ACE_OS::ace_isprint (c) ? c : '.';
+          textver[j] = ACE_OS::ace_isprint (c) ? c : u_char ('.');
         }
 
       textver[j] = 0;
@@ -2335,7 +2336,7 @@ ACE::format_hexdump (const char *buffer,
                                ACE_TEXT (" "));
               ++obuf;
             }
-          textver[i] = ACE_OS::ace_isprint (c) ? c : '.';
+          textver[i] = ACE_OS::ace_isprint (c) ? c : u_char ('.');
         }
 
       for (i = size % 16; i < 16; i++)
@@ -2805,7 +2806,7 @@ ACE::max_handles (void)
 #endif /* RLIMIT_NOFILE && !ACE_LACKS_RLIMIT */
 
 #if defined (_SC_OPEN_MAX)
-  return ACE_OS::sysconf (_SC_OPEN_MAX);
+  return static_cast<int> (ACE_OS::sysconf (_SC_OPEN_MAX));
 #elif defined (FD_SETSIZE)
   return FD_SETSIZE;
 #else
@@ -2890,6 +2891,7 @@ ACE::gcd (u_long x, u_long y)
   return x;
 }
 
+
 // Calculates the minimum enclosing frame size for the given values.
 u_long
 ACE::minimum_frame_size (u_long period1, u_long period2)
@@ -2932,6 +2934,7 @@ ACE::minimum_frame_size (u_long period1, u_long period2)
       return (period1 * period2) / greatest_common_divisor;
     }
 }
+
 
 u_long
 ACE::is_prime (const u_long n,
@@ -3297,6 +3300,7 @@ ACE::strnew (const wchar_t *s)
 // helper functions for ACE::wild_match()
 namespace
 {
+
   inline bool equal_char (char a, char b, bool case_sensitive)
   {
     if (case_sensitive)
@@ -3328,7 +3332,7 @@ namespace
             // characters are allowed as the range endpoints.  These characters
             // are the same values in both signed and unsigned chars so we
             // don't have to account for any "pathological cases."
-            for (char range = p[-1] + 1; range <= p[1]; ++range)
+            for (char range = static_cast<char> (p[-1] + 1); range <= p[1]; ++range)
               {
                 if (equal_char (s, range, case_sensitive))
                   {

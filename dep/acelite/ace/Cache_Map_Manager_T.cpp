@@ -1,4 +1,4 @@
-// $Id: Cache_Map_Manager_T.cpp 93359 2011-02-11 11:33:12Z mcorino $
+// $Id: Cache_Map_Manager_T.cpp 95790 2012-05-24 15:06:21Z shuston $
 
 #ifndef ACE_CACHE_MAP_MANAGER_T_CPP
 #define ACE_CACHE_MAP_MANAGER_T_CPP
@@ -320,7 +320,7 @@ ACE_Cache_Map_Manager<KEY, VALUE, CMAP_TYPE, ITERATOR_IMPL, REVERSE_ITERATOR_IMP
     {
 
       int result = this->caching_strategy_.notify_find (find_result,
-                                                        cache_value.second ());
+                                                        cache_value.second);
 
       // Unless the find and notification operations go thru, this
       // method is not successful.

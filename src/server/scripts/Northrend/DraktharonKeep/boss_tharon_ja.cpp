@@ -1,9 +1,5 @@
 /*
- * Copyright (C) 2010 - 2013 ProjectSkyfire <http://www.projectskyfire.org/>
- *
- * Copyright (C) 2011 - 2013 ArkCORE <http://www.arkania.net/>
- * Copyright (C) 2008 - 2013 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -19,8 +15,10 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "ScriptPCH.h"
+#include "ScriptMgr.h"
+#include "ScriptedCreature.h"
 #include "drak_tharon_keep.h"
+#include "Player.h"
 
 enum Spells
 {
@@ -46,14 +44,11 @@ enum Spells
 
 enum Yells
 {
-    SAY_AGGRO                                     = -1600011,
-    SAY_KILL_1                                    = -1600012,
-    SAY_KILL_2                                    = -1600013,
-    SAY_FLESH_1                                   = -1600014,
-    SAY_FLESH_2                                   = -1600015,
-    SAY_SKELETON_1                                = -1600016,
-    SAY_SKELETON_2                                = -1600017,
-    SAY_DEATH                                     = -1600018
+    SAY_AGGRO                                     = 0,
+    SAY_KILL                                      = 1,
+    SAY_FLESH                                     = 2,
+    SAY_SKELETON                                  = 3,
+    SAY_DEATH                                     = 4
 };
 enum Models
 {
@@ -75,9 +70,9 @@ public:
 
     struct boss_tharon_jaAI : public ScriptedAI
     {
-        boss_tharon_jaAI(Creature* c) : ScriptedAI(c)
+        boss_tharon_jaAI(Creature* creature) : ScriptedAI(creature)
         {
-            instance = c->GetInstanceScript();
+            instance = creature->GetInstanceScript();
         }
 
         uint32 uiPhaseTimer;
@@ -106,7 +101,7 @@ public:
 
         void EnterCombat(Unit* /*who*/)
         {
-            DoScriptText(SAY_AGGRO, me);
+            Talk(SAY_AGGRO);
 
             if (instance)
                 instance->SetData(DATA_THARON_JA_EVENT, IN_PROGRESS);
@@ -152,7 +147,7 @@ public:
                 case GOING_FLESH:
                     if (uiPhaseTimer < diff)
                     {
-                        DoScriptText(RAND(SAY_FLESH_1, SAY_FLESH_2), me);
+                        Talk(SAY_FLESH);
                         me->SetDisplayId(MODEL_FLESH);
 
                         std::list<Unit*> playerList;
@@ -202,7 +197,7 @@ public:
                 case GOING_SKELETAL:
                     if (uiPhaseTimer < diff)
                     {
-                        DoScriptText(RAND(SAY_SKELETON_1, SAY_SKELETON_2), me);
+                        Talk(SAY_SKELETON);
                         me->DeMorph();
                         Phase = SKELETAL;
                         uiPhaseTimer = 20*IN_MILLISECONDS;
@@ -226,12 +221,12 @@ public:
 
         void KilledUnit(Unit* /*victim*/)
         {
-            DoScriptText(RAND(SAY_KILL_1, SAY_KILL_2), me);
+            Talk(SAY_KILL);
         }
 
         void JustDied(Unit* /*killer*/)
         {
-            DoScriptText(SAY_DEATH, me);
+            Talk(SAY_DEATH);
 
             if (instance)
             {
@@ -241,7 +236,8 @@ public:
                 for (Map::PlayerList::const_iterator i = PlayerList.begin(); i != PlayerList.end(); ++i)
                     if (Player* player = i->getSource())
                         player->DeMorph();
-                instance->DoUpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_BE_SPELL_TARGET2, SPELL_ACHIEVEMENT_CHECK);
+
+                DoCast(me, SPELL_ACHIEVEMENT_CHECK);
 
                 instance->SetData(DATA_THARON_JA_EVENT, DONE);
             }

@@ -1,27 +1,19 @@
 /*
- * Copyright (C) 2005 - 2013 MaNGOS <http://www.getmangos.com/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
- * Copyright (C) 2008 - 2013 Trinity <http://www.trinitycore.org/>
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2 of the License, or (at your
+ * option) any later version.
  *
- * Copyright (C) 2006 - 2013 ScriptDev2 <http://www.scriptdev2.com/>
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
  *
- * Copyright (C) 2010 - 2013 ProjectSkyfire <http://www.projectskyfire.org/>
- *
- * Copyright (C) 2011 - 2013 ArkCORE <http://www.arkania.net/>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 /* ScriptData
@@ -31,49 +23,54 @@ SDComment: Need to implement molten punch
 SDCategory: Black Temple
 EndScriptData */
 
-#include "ScriptPCH.h"
+#include "ScriptMgr.h"
+#include "ScriptedCreature.h"
+#include "PassiveAI.h"
 #include "black_temple.h"
 
-#define EMOTE_NEW_TARGET            -1564010
-#define EMOTE_PUNCH_GROUND          -1564011                //DoScriptText(EMOTE_PUNCH_GROUND, me);
-#define EMOTE_GROUND_CRACK          -1564012
+enum Supremus
+{
+    EMOTE_NEW_TARGET            = 0,
+    EMOTE_PUNCH_GROUND          = 1,                //Talk(EMOTE_PUNCH_GROUND);
+    EMOTE_GROUND_CRACK          = 2,
 
-//Spells
-#define SPELL_MOLTEN_PUNCH          40126
-#define SPELL_HATEFUL_STRIKE        41926
-#define SPELL_MOLTEN_FLAME          40980
-#define SPELL_VOLCANIC_ERUPTION     40117
-#define SPELL_VOLCANIC_SUMMON       40276
-#define SPELL_BERSERK               45078
+    //Spells
+    SPELL_MOLTEN_PUNCH          = 40126,
+    SPELL_HATEFUL_STRIKE        = 41926,
+    SPELL_MOLTEN_FLAME          = 40980,
+    SPELL_VOLCANIC_ERUPTION     = 40117,
+    SPELL_VOLCANIC_SUMMON       = 40276,
+    SPELL_BERSERK               = 45078,
 
-#define CREATURE_VOLCANO            23085
-#define CREATURE_STALKER            23095
+    CREATURE_VOLCANO            = 23085,
+    CREATURE_STALKER            = 23095,
 
-#define PHASE_STRIKE    1
-#define PHASE_CHASE     2
+    PHASE_STRIKE                = 1,
+    PHASE_CHASE                 = 2,
 
-#define EVENT_BERSERK           1
-#define EVENT_SWITCH_PHASE      2
-#define EVENT_FLAME             3
-#define EVENT_VOLCANO           4
-#define EVENT_SWITCH_TARGET     5
-#define EVENT_HATEFUL_STRIKE    6
+    EVENT_BERSERK               = 1,
+    EVENT_SWITCH_PHASE          = 2,
+    EVENT_FLAME                 = 3,
+    EVENT_VOLCANO               = 4,
+    EVENT_SWITCH_TARGET         = 5,
+    EVENT_HATEFUL_STRIKE        = 6,
 
-#define GCD_CAST    1
+    GCD_CAST                    = 1
+};
 
 class molten_flame : public CreatureScript
 {
 public:
     molten_flame() : CreatureScript("molten_flame") { }
 
-    CreatureAI* GetAI(Creature* pCreature) const
+    CreatureAI* GetAI(Creature* creature) const
     {
-        return new molten_flameAI (pCreature);
+        return new molten_flameAI (creature);
     }
 
     struct molten_flameAI : public NullCreatureAI
     {
-        molten_flameAI(Creature *c) : NullCreatureAI(c) {}
+        molten_flameAI(Creature* creature) : NullCreatureAI(creature) {}
 
         void InitializeAI()
         {
@@ -91,30 +88,30 @@ class boss_supremus : public CreatureScript
 public:
     boss_supremus() : CreatureScript("boss_supremus") { }
 
-    CreatureAI* GetAI(Creature* pCreature) const
+    CreatureAI* GetAI(Creature* creature) const
     {
-        return new boss_supremusAI (pCreature);
+        return new boss_supremusAI (creature);
     }
 
     struct boss_supremusAI : public ScriptedAI
     {
-        boss_supremusAI(Creature *c) : ScriptedAI(c), summons(me)
+        boss_supremusAI(Creature* creature) : ScriptedAI(creature), summons(me)
         {
-            pInstance = c->GetInstanceScript();
+            instance = creature->GetInstanceScript();
         }
 
-        InstanceScript* pInstance;
+        InstanceScript* instance;
         EventMap events;
         SummonList summons;
         uint32 phase;
 
         void Reset()
         {
-            if (pInstance)
+            if (instance)
             {
                 if (me->isAlive())
                 {
-                    pInstance->SetData(DATA_SUPREMUSEVENT, NOT_STARTED);
+                    instance->SetData(DATA_SUPREMUSEVENT, NOT_STARTED);
                     //ToggleDoors(true);
                 }
                 //else ToggleDoors(false);
@@ -126,10 +123,10 @@ public:
             summons.DespawnAll();
         }
 
-        void EnterCombat(Unit * /*who*/)
+        void EnterCombat(Unit* /*who*/)
         {
-            if (pInstance)
-                pInstance->SetData(DATA_SUPREMUSEVENT, IN_PROGRESS);
+            if (instance)
+                instance->SetData(DATA_SUPREMUSEVENT, IN_PROGRESS);
 
             ChangePhase();
             events.ScheduleEvent(EVENT_BERSERK, 900000, GCD_CAST);
@@ -141,7 +138,8 @@ public:
             if (!phase || phase == PHASE_CHASE)
             {
                 phase = PHASE_STRIKE;
-                summons.DoAction(EVENT_VOLCANO, 0);
+                DummyEntryCheckPredicate pred;
+                summons.DoAction(EVENT_VOLCANO, pred);
                 events.ScheduleEvent(EVENT_HATEFUL_STRIKE, 5000, GCD_CAST, PHASE_STRIKE);
                 me->SetSpeed(MOVE_RUN, 1.2f);
                 me->ApplySpellImmune(0, IMMUNITY_STATE, SPELL_AURA_MOD_TAUNT, false);
@@ -162,40 +160,47 @@ public:
             events.ScheduleEvent(EVENT_SWITCH_PHASE, 60000, GCD_CAST);
         }
 
-        void JustDied(Unit * /*killer*/)
+        void JustDied(Unit* /*killer*/)
         {
-            if (pInstance)
+            if (instance)
             {
-                pInstance->SetData(DATA_SUPREMUSEVENT, DONE);
-                pInstance->HandleGameObject(pInstance->GetData64(DATA_GAMEOBJECT_SUPREMUS_DOORS), true);
+                instance->SetData(DATA_SUPREMUSEVENT, DONE);
+                instance->HandleGameObject(instance->GetData64(DATA_GAMEOBJECT_SUPREMUS_DOORS), true);
             }
             summons.DespawnAll();
         }
 
-        void JustSummoned(Creature *summon) {summons.Summon(summon);}
-        void SummonedCreatureDespawn(Creature *summon) {summons.Despawn(summon);}
+        void JustSummoned(Creature* summon)
+        {
+            summons.Summon(summon);
+        }
+
+        void SummonedCreatureDespawn(Creature* summon)
+        {
+            summons.Despawn(summon);
+        }
 
         Unit* CalculateHatefulStrikeTarget()
         {
             uint32 health = 0;
-            Unit *pTarget = NULL;
+            Unit* target = NULL;
 
-            std::list<HostileReference*>& m_threatlist = me->getThreatManager().getThreatList();
-            std::list<HostileReference*>::const_iterator i = m_threatlist.begin();
-            for (i = m_threatlist.begin(); i!= m_threatlist.end(); ++i)
+            ThreatContainer::StorageType const &threatlist = me->getThreatManager().getThreatList();
+            ThreatContainer::StorageType::const_iterator i = threatlist.begin();
+            for (i = threatlist.begin(); i != threatlist.end(); ++i)
             {
-                Unit* pUnit = Unit::GetUnit((*me), (*i)->getUnitGuid());
-                if (pUnit && me->IsWithinMeleeRange(pUnit))
+                Unit* unit = Unit::GetUnit(*me, (*i)->getUnitGuid());
+                if (unit && me->IsWithinMeleeRange(unit))
                 {
-                    if (pUnit->GetHealth() > health)
+                    if (unit->GetHealth() > health)
                     {
-                        health = pUnit->GetHealth();
-                        pTarget = pUnit;
+                        health = unit->GetHealth();
+                        target = unit;
                     }
                 }
             }
 
-            return pTarget;
+            return target;
         }
 
         void UpdateAI(const uint32 diff)
@@ -218,29 +223,29 @@ public:
                         events.ScheduleEvent(EVENT_FLAME, 20000, GCD_CAST);
                         break;
                     case EVENT_HATEFUL_STRIKE:
-                        if (Unit *pTarget = CalculateHatefulStrikeTarget())
-                            DoCast(pTarget, SPELL_HATEFUL_STRIKE);
+                        if (Unit* target = CalculateHatefulStrikeTarget())
+                            DoCast(target, SPELL_HATEFUL_STRIKE);
                         events.DelayEvents(1000, GCD_CAST);
                         events.ScheduleEvent(EVENT_HATEFUL_STRIKE, 5000, GCD_CAST, PHASE_STRIKE);
                         break;
                     case EVENT_SWITCH_TARGET:
-                        if (Unit *pTarget = SelectTarget(SELECT_TARGET_RANDOM, 1, 100, true))
+                        if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 1, 100, true))
                         {
                             DoResetThreat();
-                            me->AddThreat(pTarget, 5000000.0f);
-                            DoScriptText(EMOTE_NEW_TARGET, me);
+                            me->AddThreat(target, 5000000.0f);
+                            Talk(EMOTE_NEW_TARGET);
                         }
                         events.ScheduleEvent(EVENT_SWITCH_TARGET, 10000, 0, PHASE_CHASE);
                         break;
                     case EVENT_VOLCANO:
                     {
-                        Unit *pTarget = SelectTarget(SELECT_TARGET_RANDOM, 0, 999, true);
-                        if (!pTarget) pTarget = me->getVictim();
-                        if (pTarget)
+                        Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 999, true);
+                        if (!target) target = me->getVictim();
+                        if (target)
                         {
-                            //DoCast(pTarget, SPELL_VOLCANIC_SUMMON);//movement bugged
-                            me->SummonCreature(CREATURE_VOLCANO, pTarget->GetPositionX(), pTarget->GetPositionY(), pTarget->GetPositionZ(), 0, TEMPSUMMON_TIMED_DESPAWN, 30000);
-                            DoScriptText(EMOTE_GROUND_CRACK, me);
+                            //DoCast(target, SPELL_VOLCANIC_SUMMON);//movement bugged
+                            me->SummonCreature(CREATURE_VOLCANO, target->GetPositionX(), target->GetPositionY(), target->GetPositionZ(), 0, TEMPSUMMON_TIMED_DESPAWN, 30000);
+                            Talk(EMOTE_GROUND_CRACK);
                             events.DelayEvents(1500, GCD_CAST);
                         }
                         events.ScheduleEvent(EVENT_VOLCANO, 10000, GCD_CAST, PHASE_CHASE);
@@ -262,14 +267,14 @@ class npc_volcano : public CreatureScript
 public:
     npc_volcano() : CreatureScript("npc_volcano") { }
 
-    CreatureAI* GetAI(Creature* pCreature) const
+    CreatureAI* GetAI(Creature* creature) const
     {
-        return new npc_volcanoAI (pCreature);
+        return new npc_volcanoAI (creature);
     }
 
     struct npc_volcanoAI : public Scripted_NoMovementAI
     {
-        npc_volcanoAI(Creature *c) : Scripted_NoMovementAI(c) {}
+        npc_volcanoAI(Creature* creature) : Scripted_NoMovementAI(creature) {}
 
         void Reset()
         {
@@ -281,11 +286,11 @@ public:
         }
         uint32 wait;
 
-        void EnterCombat(Unit * /*who*/) {}
+        void EnterCombat(Unit* /*who*/) {}
 
-        void MoveInLineOfSight(Unit * /*who*/) {}
+        void MoveInLineOfSight(Unit* /*who*/) {}
 
-        void DoAction(const uint32 /*info*/)
+        void DoAction(const int32 /*info*/)
         {
             me->RemoveAura(SPELL_VOLCANIC_ERUPTION);
         }

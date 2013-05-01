@@ -1,11 +1,5 @@
 /*
- * Copyright (C) 2005 - 2013 MaNGOS <http://www.getmangos.com/>
- *
- * Copyright (C) 2008 - 2013 Trinity <http://www.trinitycore.org/>
- *
- * Copyright (C) 2010 - 2013 ProjectSkyfire <http://www.projectskyfire.org/>
- *
- * Copyright (C) 2011 - 2013 ArkCORE <http://www.arkania.net/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -25,7 +19,8 @@
  * Comment: Find in the future best timers and the event is not implemented.
  */
 
-#include "ScriptPCH.h"
+#include "ScriptMgr.h"
+#include "ScriptedCreature.h"
 #include "azjol_nerub.h"
 
 enum Spells
@@ -66,19 +61,12 @@ enum Mobs
 
 enum Yells
 {
-    SAY_AGGRO                                     = -1601011,
-    SAY_SLAY_1                                    = -1601012,
-    SAY_SLAY_2                                    = -1601013,
-    SAY_DEATH                                     = -1601014,
-    //Not in db
-    SAY_SEND_GROUP_1                              = -1601020,
-    SAY_SEND_GROUP_2                              = -1601021,
-    SAY_SEND_GROUP_3                              = -1601022,
-    SAY_SWARM_1                                   = -1601015,
-    SAY_SWARM_2                                   = -1601016,
-    SAY_PREFIGHT_1                                = -1601017,
-    SAY_PREFIGHT_2                                = -1601018,
-    SAY_PREFIGHT_3                                = -1601019
+    SAY_AGGRO                                     = 0,
+    SAY_SLAY                                      = 1,
+    SAY_DEATH                                     = 2,
+    SAY_SWARM                                     = 3,
+    SAY_PREFIGHT                                  = 4,
+    SAY_SEND_GROUP                                = 5
 };
 
 const Position SpawnPoint[] =
@@ -86,10 +74,10 @@ const Position SpawnPoint[] =
     { 566.164f, 682.087f, 769.079f, 2.21657f  },
     { 529.042f, 706.941f, 777.298f, 1.0821f   },
     { 489.975f, 671.239f, 772.131f, 0.261799f },
-    { 488.556f, 692.95f, 771.764f, 4.88692f  },
-    { 553.34f, 640.387f, 777.419f, 1.20428f  },
+    { 488.556f, 692.95f,  771.764f, 4.88692f  },
+    { 553.34f,  640.387f, 777.419f, 1.20428f  },
     { 517.486f, 706.398f, 777.335f, 5.35816f  },
-    { 504.01f, 637.693f, 777.479f, 0.506145f },
+    { 504.01f,  637.693f, 777.479f, 0.506145f },
     { 552.625f, 706.408f, 777.177f, 3.4383f   }
 };
 
@@ -100,9 +88,9 @@ public:
 
     struct boss_krik_thirAI : public ScriptedAI
     {
-        boss_krik_thirAI(Creature* c) : ScriptedAI(c)
+        boss_krik_thirAI(Creature* creature) : ScriptedAI(creature)
         {
-            instance = c->GetInstanceScript();
+            instance = creature->GetInstanceScript();
         }
 
         InstanceScript* instance;
@@ -122,7 +110,7 @@ public:
 
         void EnterCombat(Unit* /*who*/)
         {
-            DoScriptText(SAY_AGGRO, me);
+            Talk(SAY_AGGRO);
             Summon();
             uiSummonTimer = 15*IN_MILLISECONDS;
 
@@ -185,7 +173,7 @@ public:
         }
         void JustDied(Unit* /*killer*/)
         {
-            DoScriptText(SAY_DEATH, me);
+            Talk(SAY_DEATH);
 
             if (instance)
                 instance->SetData(DATA_KRIKTHIR_THE_GATEWATCHER_EVENT, DONE);
@@ -196,7 +184,7 @@ public:
             if (victim == me)
                 return;
 
-            DoScriptText(RAND(SAY_SLAY_1, SAY_SLAY_2), me);
+            Talk(SAY_SLAY);
         }
 
         void JustSummoned(Creature* summoned)
@@ -218,7 +206,7 @@ public:
 
     struct npc_skittering_infectorAI : public ScriptedAI
     {
-        npc_skittering_infectorAI(Creature* c) : ScriptedAI(c) {}
+        npc_skittering_infectorAI(Creature* creature) : ScriptedAI(creature) {}
 
         void JustDied(Unit* /*killer*/)
         {
@@ -240,7 +228,7 @@ public:
 
     struct npc_anub_ar_skirmisherAI : public ScriptedAI
     {
-        npc_anub_ar_skirmisherAI(Creature* c) : ScriptedAI(c) {}
+        npc_anub_ar_skirmisherAI(Creature* creature) : ScriptedAI(creature) {}
 
         uint32 uiChargeTimer;
         uint32 uiBackstabTimer;
@@ -274,6 +262,7 @@ public:
             } else uiBackstabTimer -= diff;
 
             DoMeleeAttackIfReady();
+
         }
     };
 
@@ -290,7 +279,7 @@ public:
 
     struct npc_anub_ar_shadowcasterAI : public ScriptedAI
     {
-        npc_anub_ar_shadowcasterAI(Creature* c) : ScriptedAI(c) {}
+        npc_anub_ar_shadowcasterAI(Creature* creature) : ScriptedAI(creature) {}
 
         uint32 uiShadowBoltTimer;
         uint32 uiShadowNovaTimer;
@@ -336,7 +325,7 @@ public:
 
     struct npc_anub_ar_warriorAI : public ScriptedAI
     {
-        npc_anub_ar_warriorAI(Creature* c) : ScriptedAI(c){}
+        npc_anub_ar_warriorAI(Creature* creature) : ScriptedAI(creature){}
 
         uint32 uiCleaveTimer;
         uint32 uiStrikeTimer;
@@ -381,7 +370,7 @@ public:
 
     struct npc_watcher_gashraAI : public ScriptedAI
     {
-        npc_watcher_gashraAI(Creature* c) : ScriptedAI(c) {}
+        npc_watcher_gashraAI(Creature* creature) : ScriptedAI(creature) {}
 
         uint32 uiWebWrapTimer;
         uint32 uiInfectedBiteTimer;
@@ -432,7 +421,7 @@ public:
 
     struct npc_watcher_narjilAI : public ScriptedAI
     {
-        npc_watcher_narjilAI(Creature* c) : ScriptedAI(c) {}
+        npc_watcher_narjilAI(Creature* creature) : ScriptedAI(creature) {}
 
         uint32 uiWebWrapTimer;
         uint32 uiInfectedBiteTimer;
@@ -486,7 +475,7 @@ public:
 
     struct npc_watcher_silthikAI : public ScriptedAI
     {
-        npc_watcher_silthikAI(Creature* c) : ScriptedAI(c) {}
+        npc_watcher_silthikAI(Creature* creature) : ScriptedAI(creature) {}
 
         uint32 uiWebWrapTimer;
         uint32 uiInfectedBiteTimer;
@@ -525,6 +514,7 @@ public:
             } else uiPoisonSprayTimer -= diff;
 
             DoMeleeAttackIfReady();
+
         }
     };
 

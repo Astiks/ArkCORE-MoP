@@ -1,27 +1,19 @@
 /*
- * Copyright (C) 2005 - 2013 MaNGOS <http://www.getmangos.com/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
- * Copyright (C) 2008 - 2013 Trinity <http://www.trinitycore.org/>
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2 of the License, or (at your
+ * option) any later version.
  *
- * Copyright (C) 2006 - 2013 ScriptDev2 <http://www.scriptdev2.com/>
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
  *
- * Copyright (C) 2010 - 2013 ProjectSkyfire <http://www.projectskyfire.org/>
- *
- * Copyright (C) 2011 - 2013 ArkCORE <http://www.arkania.net/>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 /* ScriptData
@@ -31,55 +23,49 @@ SDComment: Incite Chaos not functional since core lacks Mind Control support
 SDCategory: Auchindoun, Shadow Labyrinth
 EndScriptData */
 
-#include "ScriptPCH.h"
+#include "ScriptMgr.h"
+#include "ScriptedCreature.h"
 #include "shadow_labyrinth.h"
 
-#define SPELL_INCITE_CHAOS    33676
-#define SPELL_INCITE_CHAOS_B  33684                         //debuff applied to each member of party
-#define SPELL_CHARGE          33709
-#define SPELL_WAR_STOMP       33707
+enum BlackheartTheInciter
+{
+    SPELL_INCITE_CHAOS      = 33676,
+    SPELL_INCITE_CHAOS_B    = 33684,                         //debuff applied to each member of party
+    SPELL_CHARGE            = 33709,
+    SPELL_WAR_STOMP         = 33707,
 
-#define SAY_INTRO1          -1555008 //not used
-#define SAY_INTRO2          -1555009 //not used
-#define SAY_INTRO3          -1555010 //not used
-#define SAY_AGGRO1          -1555011
-#define SAY_AGGRO2          -1555012
-#define SAY_AGGRO3          -1555013
-#define SAY_SLAY1           -1555014
-#define SAY_SLAY2           -1555015
-#define SAY_HELP            -1555016 //not used
-#define SAY_DEATH           -1555017
+    SAY_INTRO               = 0,
+    SAY_AGGRO               = 1,
+    SAY_SLAY                = 2,
+    SAY_HELP                = 3,
+    SAY_DEATH               = 4,
 
-//below, not used
-#define SAY2_INTRO1         -1555018
-#define SAY2_INTRO2         -1555019
-#define SAY2_INTRO3         -1555020
-#define SAY2_AGGRO1         -1555021
-#define SAY2_AGGRO2         -1555022
-#define SAY2_AGGRO3         -1555023
-#define SAY2_SLAY1          -1555024
-#define SAY2_SLAY2          -1555025
-#define SAY2_HELP           -1555026
-#define SAY2_DEATH          -1555027
+    //below, not used
+    SAY2_INTRO              = 5,
+    SAY2_AGGRO              = 6,
+    SAY2_SLAY               = 7,
+    SAY2_HELP               = 8,
+    SAY2_DEATH              = 9
+};
 
 class boss_blackheart_the_inciter : public CreatureScript
 {
 public:
     boss_blackheart_the_inciter() : CreatureScript("boss_blackheart_the_inciter") { }
 
-    CreatureAI* GetAI(Creature* pCreature) const
+    CreatureAI* GetAI(Creature* creature) const
     {
-        return new boss_blackheart_the_inciterAI (pCreature);
+        return new boss_blackheart_the_inciterAI (creature);
     }
 
     struct boss_blackheart_the_inciterAI : public ScriptedAI
     {
-        boss_blackheart_the_inciterAI(Creature *c) : ScriptedAI(c)
+        boss_blackheart_the_inciterAI(Creature* creature) : ScriptedAI(creature)
         {
-            pInstance = c->GetInstanceScript();
+            instance = creature->GetInstanceScript();
         }
 
-        InstanceScript *pInstance;
+        InstanceScript* instance;
 
         bool InciteChaos;
         uint32 InciteChaos_Timer;
@@ -95,29 +81,29 @@ public:
             Charge_Timer = 5000;
             Knockback_Timer = 15000;
 
-            if (pInstance)
-                pInstance->SetData(DATA_BLACKHEARTTHEINCITEREVENT, NOT_STARTED);
+            if (instance)
+                instance->SetData(DATA_BLACKHEARTTHEINCITEREVENT, NOT_STARTED);
         }
 
-        void KilledUnit(Unit * /*victim*/)
+        void KilledUnit(Unit* /*victim*/)
         {
-            DoScriptText(RAND(SAY_SLAY1, SAY_SLAY2), me);
+            Talk(SAY_SLAY);
         }
 
-        void JustDied(Unit * /*victim*/)
+        void JustDied(Unit* /*killer*/)
         {
-            DoScriptText(SAY_DEATH, me);
+            Talk(SAY_DEATH);
 
-            if (pInstance)
-                pInstance->SetData(DATA_BLACKHEARTTHEINCITEREVENT, DONE);
+            if (instance)
+                instance->SetData(DATA_BLACKHEARTTHEINCITEREVENT, DONE);
         }
 
-        void EnterCombat(Unit * /*who*/)
+        void EnterCombat(Unit* /*who*/)
         {
-            DoScriptText(RAND(SAY_AGGRO1, SAY_AGGRO2, SAY_AGGRO3), me);
+            Talk(SAY_AGGRO);
 
-            if (pInstance)
-                pInstance->SetData(DATA_BLACKHEARTTHEINCITEREVENT, IN_PROGRESS);
+            if (instance)
+                instance->SetData(DATA_BLACKHEARTTHEINCITEREVENT, IN_PROGRESS);
         }
 
         void UpdateAI(const uint32 diff)
@@ -141,12 +127,12 @@ public:
             {
                 DoCast(me, SPELL_INCITE_CHAOS);
 
-                std::list<HostileReference *> t_list = me->getThreatManager().getThreatList();
-                for (std::list<HostileReference *>::const_iterator itr = t_list.begin(); itr!= t_list.end(); ++itr)
+                std::list<HostileReference*> t_list = me->getThreatManager().getThreatList();
+                for (std::list<HostileReference*>::const_iterator itr = t_list.begin(); itr!= t_list.end(); ++itr)
                 {
-                    Unit *pTarget = Unit::GetUnit(*me, (*itr)->getUnitGuid());
-                    if (pTarget && pTarget->GetTypeId() == TYPEID_PLAYER)
-                        pTarget->CastSpell(pTarget, SPELL_INCITE_CHAOS_B, true);
+                    Unit* target = Unit::GetUnit(*me, (*itr)->getUnitGuid());
+                    if (target && target->GetTypeId() == TYPEID_PLAYER)
+                        me->CastSpell(target, SPELL_INCITE_CHAOS_B, true);
                 }
 
                 DoResetThreat();
@@ -158,21 +144,22 @@ public:
             //Charge_Timer
             if (Charge_Timer <= diff)
             {
-                if (Unit *pTarget = SelectUnit(SELECT_TARGET_RANDOM, 0))
-                    DoCast(pTarget, SPELL_CHARGE);
-                Charge_Timer = 15000 + rand()%10000;
+                if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
+                    DoCast(target, SPELL_CHARGE);
+                Charge_Timer = urand(15000, 25000);
             } else Charge_Timer -= diff;
 
             //Knockback_Timer
             if (Knockback_Timer <= diff)
             {
                 DoCast(me, SPELL_WAR_STOMP);
-                Knockback_Timer = 18000 + rand()%6000;
+                Knockback_Timer = urand(18000, 24000);
             } else Knockback_Timer -= diff;
 
             DoMeleeAttackIfReady();
         }
     };
+
 };
 
 void AddSC_boss_blackheart_the_inciter()

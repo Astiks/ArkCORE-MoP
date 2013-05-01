@@ -1,27 +1,19 @@
 /*
- * Copyright (C) 2005 - 2013 MaNGOS <http://www.getmangos.com/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
- * Copyright (C) 2008 - 2013 Trinity <http://www.trinitycore.org/>
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2 of the License, or (at your
+ * option) any later version.
  *
- * Copyright (C) 2006 - 2013 ScriptDev2 <http://www.scriptdev2.com/>
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
  *
- * Copyright (C) 2010 - 2013 ProjectSkyfire <http://www.projectskyfire.org/>
- *
- * Copyright (C) 2011 - 2013 ArkCORE <http://www.arkania.net/>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 /* ScriptData
@@ -37,41 +29,19 @@ mob_fel_orc_convert
 mob_lesser_shadow_fissure
 EndContentData */
 
-#include "ScriptPCH.h"
+#include "ScriptMgr.h"
+#include "ScriptedCreature.h"
 #include "shattered_halls.h"
-
-struct Say
-{
-    int32 id;
-};
-
-static Say PeonAttacked[]=
-{
-    {-1540001},
-    {-1540002},
-    {-1540003},
-    {-1540004},
-};
-static Say PeonDies[]=
-{
-    {-1540005},
-    {-1540006},
-    {-1540007},
-    {-1540008},
-};
 
 enum eSays
 {
-    SAY_INTRO          = -1540000,
-    SAY_TAUNT_1        = -1540009,
-    SAY_TAUNT_2        = -1540010,
-    SAY_TAUNT_3        = -1540011,
-    SAY_AGGRO_1        = -1540012,
-    SAY_AGGRO_2        = -1540013,
-    SAY_AGGRO_3        = -1540014,
-    SAY_SLAY_1         = -1540015,
-    SAY_SLAY_2         = -1540016,
-    SAY_DIE            = -1540017,
+    SAY_INTRO          = 0,
+    SAY_PEON_ATTACKED  = 1,
+    SAY_PEON_DIES      = 2,
+    SAY_TAUNT          = 3,
+    SAY_AGGRO          = 4,
+    SAY_SLAY           = 5,
+    SAY_DIE            = 6
 };
 
 enum eSpells
@@ -97,12 +67,12 @@ class boss_grand_warlock_nethekurse : public CreatureScript
 
         struct boss_grand_warlock_nethekurseAI : public ScriptedAI
         {
-            boss_grand_warlock_nethekurseAI(Creature* pCreature) : ScriptedAI(pCreature)
+            boss_grand_warlock_nethekurseAI(Creature* creature) : ScriptedAI(creature)
             {
-                pInstance = pCreature->GetInstanceScript();
+                instance = creature->GetInstanceScript();
             }
 
-            InstanceScript* pInstance;
+            InstanceScript* instance;
 
             bool IntroOnce;
             bool IsIntroEvent;
@@ -144,7 +114,7 @@ class boss_grand_warlock_nethekurse : public CreatureScript
                 if (PeonEngagedCount >= 4)
                     return;
 
-                DoScriptText(PeonAttacked[PeonEngagedCount].id, me);
+                Talk(SAY_PEON_ATTACKED);
                 ++PeonEngagedCount;
             }
 
@@ -153,7 +123,7 @@ class boss_grand_warlock_nethekurse : public CreatureScript
                 if (PeonKilledCount >= 4)
                     return;
 
-                DoScriptText(PeonDies[PeonKilledCount].id, me);
+                Talk(SAY_PEON_DIES);
                 ++PeonKilledCount;
 
                 if (PeonKilledCount == 4)
@@ -166,7 +136,7 @@ class boss_grand_warlock_nethekurse : public CreatureScript
 
             void DoTauntPeons()
             {
-                DoScriptText(RAND(SAY_TAUNT_1, SAY_TAUNT_2, SAY_TAUNT_3), me);
+                Talk(SAY_TAUNT);
 
                 //TODO: kill the peons first
                 IsIntroEvent = false;
@@ -190,19 +160,19 @@ class boss_grand_warlock_nethekurse : public CreatureScript
                 }
             }
 
-            void MoveInLineOfSight(Unit *who)
+            void MoveInLineOfSight(Unit* who)
             {
                 if (!IntroOnce && me->IsWithinDistInMap(who, 50.0f))
                     {
                     if (who->GetTypeId() != TYPEID_PLAYER)
                         return;
 
-                        DoScriptText(SAY_INTRO, me);
+                        Talk(SAY_INTRO);
                         IntroOnce = true;
                         IsIntroEvent = true;
 
-                        if (pInstance)
-                            pInstance->SetData(TYPE_NETHEKURSE, IN_PROGRESS);
+                        if (instance)
+                            instance->SetData(TYPE_NETHEKURSE, IN_PROGRESS);
                     }
 
                     if (IsIntroEvent || !IsMainEvent)
@@ -211,12 +181,12 @@ class boss_grand_warlock_nethekurse : public CreatureScript
                     ScriptedAI::MoveInLineOfSight(who);
             }
 
-            void EnterCombat(Unit * /*who*/)
+            void EnterCombat(Unit* /*who*/)
             {
-                DoScriptText(RAND(SAY_AGGRO_1, SAY_AGGRO_2, SAY_AGGRO_3), me);
+                Talk(SAY_AGGRO);
             }
 
-            void JustSummoned(Creature *summoned)
+            void JustSummoned(Creature* summoned)
             {
                 summoned->setFaction(16);
                 summoned->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
@@ -229,28 +199,28 @@ class boss_grand_warlock_nethekurse : public CreatureScript
 
             void KilledUnit(Unit* /*victim*/)
             {
-                DoScriptText(RAND(SAY_SLAY_1, SAY_SLAY_2), me);
+                Talk(SAY_SLAY);
             }
 
-            void JustDied(Unit* /*Killer*/)
+            void JustDied(Unit* /*killer*/)
             {
-                DoScriptText(SAY_DIE, me);
+                Talk(SAY_DIE);
 
-                if (!pInstance)
+                if (!instance)
                     return;
 
-                pInstance->SetData(TYPE_NETHEKURSE, DONE);
-                pInstance->HandleGameObject(pInstance->GetData64(DATA_NETHEKURSE_DOOR), true);
+                instance->SetData(TYPE_NETHEKURSE, DONE);
+                instance->HandleGameObject(instance->GetData64(DATA_NETHEKURSE_DOOR), true);
             }
 
             void UpdateAI(const uint32 diff)
             {
                 if (IsIntroEvent)
                 {
-                    if (!pInstance)
+                    if (!instance)
                         return;
 
-                    if (pInstance->GetData(TYPE_NETHEKURSE) == IN_PROGRESS)
+                    if (instance->GetData(TYPE_NETHEKURSE) == IN_PROGRESS)
                     {
                         if (IntroEvent_Timer <= diff)
                             DoTauntPeons();
@@ -285,8 +255,8 @@ class boss_grand_warlock_nethekurse : public CreatureScript
                 {
                     if (ShadowFissure_Timer <= diff)
                     {
-                        if (Unit *pTarget = SelectUnit(SELECT_TARGET_RANDOM, 0))
-                            DoCast(pTarget, SPELL_SHADOW_FISSURE);
+                        if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
+                            DoCast(target, SPELL_SHADOW_FISSURE);
                         ShadowFissure_Timer = urand(7500, 15000);
                     }
                     else
@@ -294,8 +264,8 @@ class boss_grand_warlock_nethekurse : public CreatureScript
 
                     if (DeathCoil_Timer <= diff)
                     {
-                        if (Unit *pTarget = SelectUnit(SELECT_TARGET_RANDOM, 0))
-                            DoCast(pTarget, SPELL_DEATH_COIL);
+                        if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
+                            DoCast(target, SPELL_DEATH_COIL);
                         DeathCoil_Timer = urand(15000, 20000);
                     }
                     else
@@ -309,9 +279,9 @@ class boss_grand_warlock_nethekurse : public CreatureScript
             }
         };
 
-        CreatureAI* GetAI(Creature* Creature) const
+        CreatureAI* GetAI(Creature* creature) const
         {
-            return new boss_grand_warlock_nethekurseAI (Creature);
+            return new boss_grand_warlock_nethekurseAI(creature);
         }
 };
 
@@ -326,12 +296,12 @@ class mob_fel_orc_convert : public CreatureScript
 
         struct mob_fel_orc_convertAI : public ScriptedAI
         {
-            mob_fel_orc_convertAI(Creature* pCreature) : ScriptedAI(pCreature)
+            mob_fel_orc_convertAI(Creature* creature) : ScriptedAI(creature)
             {
-                pInstance = pCreature->GetInstanceScript();
+                instance = creature->GetInstanceScript();
             }
 
-            InstanceScript* pInstance;
+            InstanceScript* instance;
             uint32 Hemorrhage_Timer;
 
             void Reset()
@@ -340,38 +310,38 @@ class mob_fel_orc_convert : public CreatureScript
                 Hemorrhage_Timer = 3000;
             }
 
-            void MoveInLineOfSight(Unit * /*who*/)
+            void MoveInLineOfSight(Unit* /*who*/)
             {
             }
 
             void EnterCombat(Unit* /*who*/)
             {
-                if (pInstance)
+                if (instance)
                 {
-                    if (pInstance->GetData64(DATA_NETHEKURSE))
+                    if (instance->GetData64(DATA_NETHEKURSE))
                     {
-                        Creature *pKurse = Unit::GetCreature(*me, pInstance->GetData64(DATA_NETHEKURSE));
+                        Creature* pKurse = Unit::GetCreature(*me, instance->GetData64(DATA_NETHEKURSE));
                         if (pKurse && me->IsWithinDist(pKurse, 45.0f))
                         {
                             CAST_AI(boss_grand_warlock_nethekurse::boss_grand_warlock_nethekurseAI, pKurse->AI())->DoYellForPeonAggro();
 
-                            if (pInstance->GetData(TYPE_NETHEKURSE) == IN_PROGRESS)
+                            if (instance->GetData(TYPE_NETHEKURSE) == IN_PROGRESS)
                                 return;
                             else
-                                pInstance->SetData(TYPE_NETHEKURSE, IN_PROGRESS);
+                                instance->SetData(TYPE_NETHEKURSE, IN_PROGRESS);
                         }
                     }
                 }
             }
 
-            void JustDied(Unit* /*Killer*/)
+            void JustDied(Unit* /*killer*/)
             {
-                if (pInstance)
+                if (instance)
                 {
-                    if (pInstance->GetData(TYPE_NETHEKURSE) != IN_PROGRESS)
+                    if (instance->GetData(TYPE_NETHEKURSE) != IN_PROGRESS)
                         return;
-                    if (pInstance->GetData64(DATA_NETHEKURSE))
-                        if (Creature *pKurse = Unit::GetCreature(*me, pInstance->GetData64(DATA_NETHEKURSE)))
+                    if (instance->GetData64(DATA_NETHEKURSE))
+                        if (Creature* pKurse = Unit::GetCreature(*me, instance->GetData64(DATA_NETHEKURSE)))
                             CAST_AI(boss_grand_warlock_nethekurse::boss_grand_warlock_nethekurseAI, pKurse->AI())->DoYellForPeonDeath();
                 }
             }
@@ -391,9 +361,9 @@ class mob_fel_orc_convert : public CreatureScript
             }
         };
 
-        CreatureAI* GetAI(Creature* Creature) const
+        CreatureAI* GetAI(Creature* creature) const
         {
-            return new mob_fel_orc_convertAI (Creature);
+            return new mob_fel_orc_convertAI(creature);
         }
 };
 
@@ -409,17 +379,17 @@ class mob_lesser_shadow_fissure : public CreatureScript
 
         struct mob_lesser_shadow_fissureAI : public ScriptedAI
         {
-            mob_lesser_shadow_fissureAI(Creature* pCreature) : ScriptedAI(pCreature) {}
+            mob_lesser_shadow_fissureAI(Creature* creature) : ScriptedAI(creature) {}
 
             void Reset() { }
-            void MoveInLineOfSight(Unit * /*who*/) {}
+            void MoveInLineOfSight(Unit* /*who*/) {}
             void AttackStart(Unit* /*who*/) {}
             void EnterCombat(Unit* /*who*/) {}
         };
 
-        CreatureAI* GetAI(Creature* pCreature) const
+        CreatureAI* GetAI(Creature* creature) const
         {
-            return new mob_lesser_shadow_fissureAI (pCreature);
+            return new mob_lesser_shadow_fissureAI (creature);
         }
 };
 
@@ -429,3 +399,4 @@ void AddSC_boss_grand_warlock_nethekurse()
     new mob_fel_orc_convert();
     new mob_lesser_shadow_fissure();
 }
+

@@ -1,4 +1,4 @@
-// $Id: High_Res_Timer.cpp 95761 2012-05-15 18:23:04Z johnnyw $
+// $Id: High_Res_Timer.cpp 95788 2012-05-24 07:59:51Z johnnyw $
 
 // Be very carefull before changing the calculations inside
 // ACE_High_Res_Timer.  The precision matters and we are using integer
@@ -187,6 +187,7 @@ ACE_High_Res_Timer::get_cpuinfo (void)
 }
 #endif /* ACE_LINUX */
 
+
 ACE_High_Res_Timer::global_scale_factor_type
 ACE_High_Res_Timer::global_scale_factor (void)
 {
@@ -335,7 +336,7 @@ ACE_High_Res_Timer::reset (void)
 void
 ACE_High_Res_Timer::elapsed_time (ACE_Time_Value &tv) const
 {
-  hrtime_to_tv (tv,
+  this->hrtime_to_tv (tv,
                 ACE_High_Res_Timer::elapsed_hrtime (this->end_, this->start_));
 }
 
@@ -372,7 +373,7 @@ ACE_High_Res_Timer::elapsed_time (struct timespec &elapsed_time) const
 void
 ACE_High_Res_Timer::elapsed_time_incr (ACE_Time_Value &tv) const
 {
-  hrtime_to_tv (tv, total_);
+  this->hrtime_to_tv (tv, total_);
 }
 
 void

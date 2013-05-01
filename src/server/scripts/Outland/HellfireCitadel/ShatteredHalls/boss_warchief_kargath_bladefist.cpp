@@ -1,27 +1,19 @@
 /*
- * Copyright (C) 2005 - 2013 MaNGOS <http://www.getmangos.com/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
- * Copyright (C) 2008 - 2013 Trinity <http://www.trinitycore.org/>
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2 of the License, or (at your
+ * option) any later version.
  *
- * Copyright (C) 2006 - 2013 ScriptDev2 <http://www.scriptdev2.com/>
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
  *
- * Copyright (C) 2010 - 2013 ProjectSkyfire <http://www.projectskyfire.org/>
- *
- * Copyright (C) 2011 - 2013 ArkCORE <http://www.arkania.net/>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 /* ScriptData
@@ -35,16 +27,14 @@ EndScriptData */
 boss_warchief_kargath_bladefist
 EndContentData */
 
-#include "ScriptPCH.h"
+#include "ScriptMgr.h"
+#include "ScriptedCreature.h"
 
 enum eSays
 {
-    SAY_AGGRO1                     = -1540042,
-    SAY_AGGRO2                     = -1540043,
-    SAY_AGGRO3                     = -1540044,
-    SAY_SLAY1                      = -1540045,
-    SAY_SLAY2                      = -1540046,
-    SAY_DEATH                      = -1540047,
+    SAY_AGGRO                      = 0,
+    SAY_SLAY                       = 1,
+    SAY_DEATH                      = 2
 };
 
 enum eSpells
@@ -78,7 +68,7 @@ class boss_warchief_kargath_bladefist : public CreatureScript
 
         struct boss_warchief_kargath_bladefistAI : public ScriptedAI
         {
-            boss_warchief_kargath_bladefistAI(Creature* pCreature) : ScriptedAI(pCreature)
+            boss_warchief_kargath_bladefistAI(Creature* creature) : ScriptedAI(creature)
             {
             }
 
@@ -103,7 +93,7 @@ class boss_warchief_kargath_bladefist : public CreatureScript
                 removeAdds();
 
                 me->SetSpeed(MOVE_RUN, 2);
-                me->RemoveUnitMovementFlag(MOVEMENTFLAG_WALKING);
+                me->SetWalk(false);
 
                 summoned = 2;
                 InBlade = false;
@@ -116,19 +106,19 @@ class boss_warchief_kargath_bladefist : public CreatureScript
                 resetcheck_timer = 5000;
             }
 
-            void EnterCombat(Unit * /*who*/)
+            void EnterCombat(Unit* /*who*/)
             {
-                DoScriptText(RAND(SAY_AGGRO1, SAY_AGGRO2, SAY_AGGRO3), me);
+                Talk(SAY_AGGRO);
             }
 
-            void JustSummoned(Creature *summoned)
+            void JustSummoned(Creature* summoned)
             {
                 switch (summoned->GetEntry())
                 {
                     case MOB_HEARTHEN_GUARD:
                     case MOB_SHARPSHOOTER_GUARD:
                     case MOB_REAVER_GUARD:
-                        summoned->AI()->AttackStart(SelectUnit(SELECT_TARGET_RANDOM, 0));
+                        summoned->AI()->AttackStart(SelectTarget(SELECT_TARGET_RANDOM, 0));
                         adds.push_back(summoned->GetGUID());
                         break;
                     case MOB_SHATTERED_ASSASSIN:
@@ -141,13 +131,13 @@ class boss_warchief_kargath_bladefist : public CreatureScript
             {
                 if (victim->GetTypeId() == TYPEID_PLAYER)
                 {
-                    DoScriptText(RAND(SAY_SLAY1, SAY_SLAY2), me);
+                    Talk(SAY_SLAY);
                 }
             }
 
-            void JustDied(Unit* /*Killer*/)
+            void JustDied(Unit* /*killer*/)
             {
-                DoScriptText(SAY_DEATH, me);
+                Talk(SAY_DEATH);
                 removeAdds();
             }
 
@@ -174,7 +164,7 @@ class boss_warchief_kargath_bladefist : public CreatureScript
             {
                 for (std::vector<uint64>::const_iterator itr = adds.begin(); itr!= adds.end(); ++itr)
                 {
-                    Unit* temp = Unit::GetUnit((*me), *itr);
+                    Unit* temp = Unit::GetUnit(*me, *itr);
                     if (temp && temp->isAlive())
                     {
                         (*temp).GetMotionMaster()->Clear(true);
@@ -186,7 +176,7 @@ class boss_warchief_kargath_bladefist : public CreatureScript
 
                 for (std::vector<uint64>::const_iterator itr = assassins.begin(); itr!= assassins.end(); ++itr)
                 {
-                    Unit* temp = Unit::GetUnit((*me), *itr);
+                    Unit* temp = Unit::GetUnit(*me, *itr);
                     if (temp && temp->isAlive())
                     {
                         (*temp).GetMotionMaster()->Clear(true);
@@ -244,8 +234,8 @@ class boss_warchief_kargath_bladefist : public CreatureScript
                                 float x, y, randx, randy;
                                 randx = 0.0f + rand()%40;
                                 randy = 0.0f + rand()%40;
-                                x = 210+ randx ;
-                                y = -60- randy ;
+                                x = 210+ randx;
+                                y = -60- randy;
                                 me->GetMotionMaster()->MovePoint(1, x, y, me->GetPositionZ());
                                 Wait_Timer = 0;
                             }
@@ -275,7 +265,7 @@ class boss_warchief_kargath_bladefist : public CreatureScript
                     {
                         if (Charge_timer <= diff)
                         {
-                            DoCast(SelectUnit(SELECT_TARGET_RANDOM, 0), H_SPELL_CHARGE);
+                            DoCast(SelectTarget(SELECT_TARGET_RANDOM, 0), H_SPELL_CHARGE);
                             Charge_timer = 0;
                         }
                         else
@@ -311,9 +301,7 @@ class boss_warchief_kargath_bladefist : public CreatureScript
 
                 if (resetcheck_timer <= diff)
                 {
-                    uint32 tempx, tempy;
-                    tempx = uint32(me->GetPositionX());
-                    tempy = uint32(me->GetPositionY());
+                    uint32 tempx = uint32(me->GetPositionX());
                     if (tempx > 255 || tempx < 205)
                     {
                         EnterEvadeMode();
@@ -326,9 +314,9 @@ class boss_warchief_kargath_bladefist : public CreatureScript
             }
         };
 
-        CreatureAI* GetAI(Creature* Creature) const
+        CreatureAI* GetAI(Creature* creature) const
         {
-            return new boss_warchief_kargath_bladefistAI (Creature);
+            return new boss_warchief_kargath_bladefistAI(creature);
         }
 };
 
@@ -336,3 +324,4 @@ void AddSC_boss_warchief_kargath_bladefist()
 {
     new boss_warchief_kargath_bladefist();
 }
+

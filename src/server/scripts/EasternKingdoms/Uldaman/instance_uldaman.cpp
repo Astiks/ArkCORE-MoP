@@ -1,9 +1,5 @@
 /*
- * Copyright (C) 2005 - 2013 MaNGOS <http://www.getmangos.com/>
- *
- * Copyright (C) 2008 - 2013 Trinity <http://www.trinitycore.org/>
- *
- * Copyright (C) 2010 - 2013 ArkCORE <http://www.arkania.net/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2006-2007 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -27,7 +23,8 @@ SDComment: Need some cosmetics updates when archeadas door are closing (Guardian
 SDCategory: Uldaman
 EndScriptData */
 
-#include "ScriptPCH.h"
+#include "ScriptMgr.h"
+#include "InstanceScript.h"
 #include "uldaman.h"
 
 enum eSpells
@@ -102,7 +99,7 @@ class instance_uldaman : public InstanceMapScript
             uint32 m_auiEncounter[MAX_ENCOUNTER];
             std::string str_data;
 
-            void OnGameObjectCreate(GameObject* go, bool /*add*/)
+            void OnGameObjectCreate(GameObject* go)
             {
                 switch (go->GetEntry())
                 {
@@ -188,8 +185,8 @@ class instance_uldaman : public InstanceMapScript
                     return;        // only want the first one we find
                 }
                 // if we get this far than all four are dead so open the door
-                SetData (DATA_ALTAR_DOORS, DONE);
-                SetDoor (uiArchaedasTempleDoor, true); //open next the door too
+                SetData(DATA_ALTAR_DOORS, DONE);
+                SetDoor(uiArchaedasTempleDoor, true); //open next the door too
             }
 
             void ActivateWallMinions()
@@ -205,6 +202,9 @@ class instance_uldaman : public InstanceMapScript
                         continue;
                     archaedas->CastSpell(target, SPELL_AWAKEN_VAULT_WALKER, true);
                     target->CastSpell(target, SPELL_ARCHAEDAS_AWAKEN, true);
+                    target->RemoveFlag(UNIT_FIELD_FLAGS,UNIT_FLAG_DISABLE_MOVE);
+                    target->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+                    target->setFaction(14);
                     return;        // only want the first one we find
                 }
             }
@@ -324,7 +324,7 @@ class instance_uldaman : public InstanceMapScript
                     uiIronayaSealDoorTimer -= diff;
             }
 
-            void SetData (uint32 type, uint32 data)
+            void SetData(uint32 type, uint32 data)
             {
                 switch (type)
                 {
@@ -390,7 +390,7 @@ class instance_uldaman : public InstanceMapScript
                 }
             }
 
-            void SetData64 (uint32 type, uint64 data)
+            void SetData64(uint32 type, uint64 data)
             {
                 // Archaedas
                 if (type == 0)
@@ -427,9 +427,10 @@ class instance_uldaman : public InstanceMapScript
                 OUT_LOAD_INST_DATA_COMPLETE;
             }
 
-            void OnCreatureCreate(Creature* creature, bool /*add*/)
+            void OnCreatureCreate(Creature* creature)
             {
-                switch (creature->GetEntry()) {
+                switch (creature->GetEntry())
+                {
                     case 4857:    // Stone Keeper
                         SetFrozenState (creature);
                         vStoneKeeper.push_back(creature->GetGUID());
@@ -461,23 +462,31 @@ class instance_uldaman : public InstanceMapScript
                     case 2748:    // Archaedas
                         uiArchaedasGUID = creature->GetGUID();
                         break;
-                } // end switch
-            } // end OnCreatureCreate
 
-            uint64 GetData64 (uint32 identifier)
+                }
+            }
+
+            uint64 GetData64(uint32 identifier) const
             {
-                if (identifier == 0) return uiWhoWokeuiArchaedasGUID;
-                if (identifier == 1) return vVaultWalker[0];    // VaultWalker1
-                if (identifier == 2) return vVaultWalker[1];    // VaultWalker2
-                if (identifier == 3) return vVaultWalker[2];    // VaultWalker3
-                if (identifier == 4) return vVaultWalker[3];    // VaultWalker4
-
-                if (identifier == 5) return vEarthenGuardian[0];
-                if (identifier == 6) return vEarthenGuardian[1];
-                if (identifier == 7) return vEarthenGuardian[2];
-                if (identifier == 8) return vEarthenGuardian[3];
-                if (identifier == 9) return vEarthenGuardian[4];
-                if (identifier == 10) return vEarthenGuardian[5];
+                switch (identifier)
+                {
+                    case 0:
+                        return uiWhoWokeuiArchaedasGUID;
+                    case 1:
+                    case 2:
+                    case 3:
+                    case 4:
+                        return vVaultWalker.at(identifier - 1);
+                    case 5:
+                    case 6:
+                    case 7:
+                    case 8:
+                    case 9:
+                    case 10:
+                        return vEarthenGuardian.at(identifier - 5);
+                    default:
+                        break;
+                }
 
                 return 0;
             } // end GetData64

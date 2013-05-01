@@ -1,4 +1,4 @@
-// $Id: OS_NS_Thread.cpp 95770 2012-05-16 17:45:58Z shuston $
+// $Id: OS_NS_Thread.cpp 96061 2012-08-16 09:36:07Z mcorino $
 
 #include "ace/OS_NS_Thread.h"
 
@@ -18,7 +18,7 @@
 // This is necessary to work around nasty problems with MVS C++.
 #include "ace/Auto_Ptr.h"
 #include "ace/Thread_Mutex.h"
-#include "ace/Condition_T.h"
+#include "ace/Condition_Thread_Mutex.h"
 #include "ace/Guard_T.h"
 
 extern "C" void
@@ -26,6 +26,7 @@ ACE_MUTEX_LOCK_CLEANUP_ADAPTER_NAME (void *args)
 {
   ACE_VERSIONED_NAMESPACE_NAME::ACE_OS::mutex_lock_cleanup (args);
 }
+
 
 #if !defined(ACE_WIN32) && defined (__IBMCPP__) && (__IBMCPP__ >= 400)
 # define ACE_BEGINTHREADEX(STACK, STACKSIZE, ENTRY_POINT, ARGS, FLAGS, THR_ID) \
@@ -545,6 +546,7 @@ private:
   ACE_thread_key_t in_use_;
 };
 
+
 /*****************************************************************************/
 /**
  * @class TSS_Cleanup_Instance
@@ -586,7 +588,7 @@ private:
   static unsigned int reference_count_;
   static ACE_TSS_Cleanup * instance_;
   static ACE_Thread_Mutex* mutex_;
-  static ACE_Thread_Condition<ACE_Thread_Mutex>* condition_;
+  static ACE_Condition_Thread_Mutex* condition_;
 
 private:
   ACE_TSS_Cleanup * ptr_;
@@ -609,7 +611,7 @@ TSS_Cleanup_Instance::TSS_Cleanup_Instance (Purpose purpose)
   if (mutex_ == 0)
     {
       ACE_NEW (mutex_, ACE_Thread_Mutex ());
-      ACE_NEW (condition_, ACE_Thread_Condition<ACE_Thread_Mutex> (*mutex_));
+      ACE_NEW (condition_, ACE_Condition_Thread_Mutex (*mutex_));
     }
 
   ACE_GUARD (ACE_Thread_Mutex, m, *mutex_);
@@ -709,7 +711,7 @@ TSS_Cleanup_Instance::operator ->()
 unsigned int TSS_Cleanup_Instance::reference_count_ = 0;
 ACE_TSS_Cleanup * TSS_Cleanup_Instance::instance_ = 0;
 ACE_Thread_Mutex* TSS_Cleanup_Instance::mutex_ = 0;
-ACE_Thread_Condition<ACE_Thread_Mutex>* TSS_Cleanup_Instance::condition_ = 0;
+ACE_Condition_Thread_Mutex* TSS_Cleanup_Instance::condition_ = 0;
 
 ACE_TSS_Cleanup::~ACE_TSS_Cleanup (void)
 {
@@ -1409,7 +1411,7 @@ ACE_OS::cond_timedwait (ACE_cond_t *cv,
       // Note that we must convert between absolute time (which is
       // passed as a parameter) and relative time (which is what
       // WaitForSingleObjects() expects).
-      ACE_Time_Value relative_time (*timeout - ACE_OS::gettimeofday ());
+      ACE_Time_Value relative_time = timeout->to_relative_time ();
 
       // Watchout for situations where a context switch has caused the
       // current time to be > the timeout.
@@ -1582,7 +1584,7 @@ ACE_OS::cond_timedwait (ACE_cond_t *cv,
   int msec_timeout = 0;
   int result = 0;
 
-  ACE_Time_Value relative_time (*timeout - ACE_OS::gettimeofday ());
+  ACE_Time_Value relative_time = timeout->to_relative_time ();
   // Watchout for situations where a context switch has caused the
   // current time to be > the timeout.
   if (relative_time > ACE_Time_Value::zero)
@@ -1611,7 +1613,7 @@ ACE_OS::cond_timedwait (ACE_cond_t *cv,
       // Note that we must convert between absolute time (which is
       // passed as a parameter) and relative time (which is what
       // WaitForSingleObjects() expects).
-      ACE_Time_Value relative_time (*timeout - ACE_OS::gettimeofday ());
+      ACE_Time_Value relative_time = timeout->to_relative_time ();
 
       // Watchout for situations where a context switch has caused the
       // current time to be > the timeout.
@@ -2143,7 +2145,7 @@ ACE_OS::mutex_lock (ACE_mutex_t *m,
   // Note that we must convert between absolute time (which is passed
   // as a parameter) and relative time (which is what the system call
   // expects).
-  ACE_Time_Value relative_time (timeout - ACE_OS::gettimeofday ());
+  ACE_Time_Value relative_time = timeout.to_relative_time ();
 
   switch (m->type_)
   {
@@ -2177,7 +2179,7 @@ ACE_OS::mutex_lock (ACE_mutex_t *m,
   // Note that we must convert between absolute time (which is passed
   // as a parameter) and relative time (which is what the system call
   // expects).
-  ACE_Time_Value relative_time (timeout - ACE_OS::gettimeofday ());
+  ACE_Time_Value relative_time = timeout.to_relative_time ();
 
   int ticks_per_sec = ::sysClkRateGet ();
 
@@ -3014,7 +3016,7 @@ ACE_OS::event_timedwait (ACE_event_t *event,
         {
           // Time is given in absolute time, we should use
           // gettimeofday() to calculate relative time
-          ACE_Time_Value relative_time (*timeout - ACE_OS::gettimeofday ());
+          ACE_Time_Value relative_time = timeout->to_relative_time ();
 
           // Watchout for situations where a context switch has caused
           // the current time to be > the timeout.  Thanks to Norbert
@@ -3075,7 +3077,7 @@ ACE_OS::event_timedwait (ACE_event_t *event,
           // cond_timewait() expects absolute time, check
           // <use_absolute_time> flag.
           if (use_absolute_time == 0)
-            absolute_timeout += ACE_OS::gettimeofday ();
+            absolute_timeout = timeout->to_absolute_time ();
 
           while (event->eventdata_->is_signaled_ == 0 &&
                  event->eventdata_->auto_event_signaled_ == false)
@@ -3571,6 +3573,7 @@ ACE_OS::sched_params (const ACE_Sched_Params &sched_params,
 
   if (sched_params.scope () == ACE_SCOPE_THREAD)
     {
+
       // Setting the REALTIME_PRIORITY_CLASS on Windows is almost always
       // a VERY BAD THING. This include guard will allow people
       // to easily disable this feature in ACE.
@@ -3596,6 +3599,7 @@ ACE_OS::sched_params (const ACE_Sched_Params &sched_params,
     }
   else if (sched_params.scope () == ACE_SCOPE_PROCESS)
     {
+
 # if defined (ACE_HAS_PHARLAP_RT)
       ACE_NOTSUP_RETURN (-1);
 # else
@@ -3627,6 +3631,7 @@ ACE_OS::sched_params (const ACE_Sched_Params &sched_params,
       ::CloseHandle (hProcess);
       return 0;
 #endif /* ACE_HAS_PHARLAP_RT */
+
     }
   else
     {
@@ -4123,6 +4128,7 @@ ACE_OS::thr_create (ACE_THR_FUNC func,
         {
            if (ACE_ADAPT_RETVAL(::pthread_attr_setcreatesuspend_np(&attr), result) != 0)
             {
+
               ::pthread_attr_destroy (&attr);
               return -1;
             }

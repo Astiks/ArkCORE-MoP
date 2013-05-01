@@ -1,9 +1,5 @@
 /*
- * Copyright (C) 2005 - 2013 MaNGOS <http://www.getmangos.com/>
- *
- * Copyright (C) 2008 - 2013 Trinity <http://www.trinitycore.org/>
- *
- * Copyright (C) 2010 - 2013 ArkCORE <http://www.arkania.net/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -27,7 +23,8 @@ SDComment: No Heroic support yet. Needs further testing. Several scripts for pet
 SDCategory: Magister's Terrace
 EndScriptData */
 
-#include "ScriptPCH.h"
+#include "ScriptMgr.h"
+#include "ScriptedCreature.h"
 #include "magisters_terrace.h"
 
 struct Speech
@@ -37,25 +34,25 @@ struct Speech
 
 static Speech LackeyDeath[]=
 {
-    {-1585013},
-    {-1585014},
-    {-1585015},
-    {-1585016},
+    {1},
+    {2},
+    {3},
+    {4},
 };
 
 static Speech PlayerDeath[]=
 {
-    {-1585017},
-    {-1585018},
-    {-1585019},
-    {-1585020},
-    {-1585021},
+    {5},
+    {6},
+    {7},
+    {8},
+    {9},
 };
 
 enum eEnums
 {
-    SAY_AGGRO               = -1585012,
-    SAY_DEATH               = -1585022,
+    SAY_AGGRO               = 0,
+    SAY_DEATH               = 10,
 
     SPELL_DISPEL_MAGIC      = 27609,
     SPELL_FLASH_HEAL        = 17843,
@@ -103,9 +100,9 @@ public:
 
     struct boss_priestess_delrissaAI : public ScriptedAI
     {
-        boss_priestess_delrissaAI(Creature* c) : ScriptedAI(c)
+        boss_priestess_delrissaAI(Creature* creature) : ScriptedAI(creature)
         {
-            instance = c->GetInstanceScript();
+            instance = creature->GetInstanceScript();
             memset(&m_auiLackeyGUID, 0, sizeof(m_auiLackeyGUID));
             LackeyEntryList.clear();
         }
@@ -147,7 +144,7 @@ public:
 
         void EnterCombat(Unit* who)
         {
-            DoScriptText(SAY_AGGRO, me);
+            Talk(SAY_AGGRO);
 
             for (uint8 i = 0; i < MAX_ACTIVE_LACKEY; ++i)
             {
@@ -205,7 +202,8 @@ public:
                     //object already removed, not exist
                     if (!pAdd)
                     {
-                        if (Creature* pAdd = me->SummonCreature((*itr), LackeyLocations[j][0], LackeyLocations[j][1], fZLocation, fOrientation, TEMPSUMMON_CORPSE_DESPAWN, 0))
+                        pAdd = me->SummonCreature((*itr), LackeyLocations[j][0], LackeyLocations[j][1], fZLocation, fOrientation, TEMPSUMMON_CORPSE_DESPAWN, 0);
+                        if (pAdd)
                             m_auiLackeyGUID[j] = pAdd->GetGUID();
                     }
                     ++j;
@@ -218,7 +216,7 @@ public:
             if (victim->GetTypeId() != TYPEID_PLAYER)
                 return;
 
-            DoScriptText(PlayerDeath[PlayersKilled].id, me);
+            Talk(PlayerDeath[PlayersKilled].id);
 
             if (PlayersKilled < 4)
                 ++PlayersKilled;
@@ -226,7 +224,7 @@ public:
 
         void JustDied(Unit* /*killer*/)
         {
-            DoScriptText(SAY_DEATH, me);
+            Talk(SAY_DEATH);
 
             if (!instance)
                 return;
@@ -343,9 +341,9 @@ enum eHealingPotion
 //all 8 possible lackey use this common
 struct boss_priestess_lackey_commonAI : public ScriptedAI
 {
-    boss_priestess_lackey_commonAI(Creature* c) : ScriptedAI(c)
+    boss_priestess_lackey_commonAI(Creature* creature) : ScriptedAI(creature)
     {
-        instance = c->GetInstanceScript();
+        instance = creature->GetInstanceScript();
         memset(&m_auiLackeyGUIDs, 0, sizeof(m_auiLackeyGUIDs));
         AcquireGUIDs();
     }
@@ -417,7 +415,7 @@ struct boss_priestess_lackey_commonAI : public ScriptedAI
             return;
 
         //should delrissa really yell if dead?
-        DoScriptText(LackeyDeath[uiLackeyDeathCount].id, pDelrissa);
+        pDelrissa->AI()->Talk(LackeyDeath[uiLackeyDeathCount].id);
 
         instance->SetData(DATA_DELRISSA_DEATH_COUNT, SPECIAL);
 
@@ -469,7 +467,7 @@ struct boss_priestess_lackey_commonAI : public ScriptedAI
         if (ResetThreatTimer <= diff)
         {
             DoResetThreat();
-            ResetThreatTimer = 5000 + rand()%15000;
+            ResetThreatTimer = urand(5000, 20000);
         } else ResetThreatTimer -= diff;
     }
 };
@@ -497,7 +495,7 @@ public:
     struct boss_kagani_nightstrikeAI : public boss_priestess_lackey_commonAI
     {
         //Rogue
-        boss_kagani_nightstrikeAI(Creature* c) : boss_priestess_lackey_commonAI(c) {}
+        boss_kagani_nightstrikeAI(Creature* creature) : boss_priestess_lackey_commonAI(creature) {}
 
         uint32 Gouge_Timer;
         uint32 Kick_Timer;
@@ -601,7 +599,7 @@ public:
     struct boss_ellris_duskhallowAI : public boss_priestess_lackey_commonAI
     {
         //Warlock
-        boss_ellris_duskhallowAI(Creature* c) : boss_priestess_lackey_commonAI(c) {}
+        boss_ellris_duskhallowAI(Creature* creature) : boss_priestess_lackey_commonAI(creature) {}
 
         uint32 Immolate_Timer;
         uint32 Shadow_Bolt_Timer;
@@ -692,7 +690,7 @@ public:
     struct boss_eramas_brightblazeAI : public boss_priestess_lackey_commonAI
     {
         //Monk
-        boss_eramas_brightblazeAI(Creature* c) : boss_priestess_lackey_commonAI(c) {}
+        boss_eramas_brightblazeAI(Creature* creature) : boss_priestess_lackey_commonAI(creature) {}
 
         uint32 Knockdown_Timer;
         uint32 Snap_Kick_Timer;
@@ -753,7 +751,7 @@ public:
     struct boss_yazzaiAI : public boss_priestess_lackey_commonAI
     {
         //Mage
-        boss_yazzaiAI(Creature* c) : boss_priestess_lackey_commonAI(c) {}
+        boss_yazzaiAI(Creature* creature) : boss_priestess_lackey_commonAI(creature) {}
 
         bool HasIceBlocked;
 
@@ -833,8 +831,8 @@ public:
             if (Blink_Timer <= diff)
             {
                 bool InMeleeRange = false;
-                std::list<HostileReference*>& t_list = me->getThreatManager().getThreatList();
-                for (std::list<HostileReference*>::const_iterator itr = t_list.begin(); itr!= t_list.end(); ++itr)
+                ThreatContainer::StorageType const &t_list = me->getThreatManager().getThreatList();
+                for (ThreatContainer::StorageType::const_iterator itr = t_list.begin(); itr!= t_list.end(); ++itr)
                 {
                     if (Unit* target = Unit::GetUnit(*me, (*itr)->getUnitGuid()))
                     {
@@ -883,7 +881,7 @@ public:
     struct boss_warlord_salarisAI : public boss_priestess_lackey_commonAI
     {
         //Warrior
-        boss_warlord_salarisAI(Creature* c) : boss_priestess_lackey_commonAI(c) {}
+        boss_warlord_salarisAI(Creature* creature) : boss_priestess_lackey_commonAI(creature) {}
 
         uint32 Intercept_Stun_Timer;
         uint32 Disarm_Timer;
@@ -919,8 +917,8 @@ public:
             if (Intercept_Stun_Timer <= diff)
             {
                 bool InMeleeRange = false;
-                std::list<HostileReference*>& t_list = me->getThreatManager().getThreatList();
-                for (std::list<HostileReference*>::const_iterator itr = t_list.begin(); itr!= t_list.end(); ++itr)
+                ThreatContainer::StorageType const &t_list = me->getThreatManager().getThreatList();
+                for (ThreatContainer::StorageType::const_iterator itr = t_list.begin(); itr!= t_list.end(); ++itr)
                 {
                     if (Unit* target = Unit::GetUnit(*me, (*itr)->getUnitGuid()))
                     {
@@ -1003,7 +1001,10 @@ public:
     struct boss_garaxxasAI : public boss_priestess_lackey_commonAI
     {
         //Hunter
-        boss_garaxxasAI(Creature* c) : boss_priestess_lackey_commonAI(c) { m_uiPetGUID = 0; }
+        boss_garaxxasAI(Creature* creature) : boss_priestess_lackey_commonAI(creature)
+        {
+            m_uiPetGUID = 0;
+        }
 
         uint64 m_uiPetGUID;
 
@@ -1122,7 +1123,7 @@ public:
     struct boss_apokoAI : public boss_priestess_lackey_commonAI
     {
         //Shaman
-        boss_apokoAI(Creature* c) : boss_priestess_lackey_commonAI(c) {}
+        boss_apokoAI(Creature* creature) : boss_priestess_lackey_commonAI(creature) {}
 
         uint32 Totem_Timer;
         uint8  Totem_Amount;
@@ -1220,7 +1221,7 @@ public:
     struct boss_zelfanAI : public boss_priestess_lackey_commonAI
     {
         //Engineer
-        boss_zelfanAI(Creature* c) : boss_priestess_lackey_commonAI(c) {}
+        boss_zelfanAI(Creature* creature) : boss_priestess_lackey_commonAI(creature) {}
 
         uint32 Goblin_Dragon_Gun_Timer;
         uint32 Rocket_Launch_Timer;

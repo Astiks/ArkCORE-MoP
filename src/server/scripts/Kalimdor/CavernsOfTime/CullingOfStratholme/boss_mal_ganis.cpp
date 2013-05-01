@@ -1,7 +1,5 @@
 /*
- * Copyright (C) 2008 - 2013 TrinityCore <http://www.trinitycore.org/>
- *
- * Copyright (C) 2011 - 2013 ArkCORE <http://www.arkania.net/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -25,7 +23,8 @@ SDComment: TODO: Intro & outro
 SDCategory:
 Script Data End */
 
-#include "ScriptPCH.h"
+#include "ScriptMgr.h"
+#include "ScriptedCreature.h"
 #include "culling_of_stratholme.h"
 
 enum Spells
@@ -36,28 +35,22 @@ enum Spells
     H_SPELL_MIND_BLAST                          = 58850,
     SPELL_SLEEP                                 = 52721, //Puts an enemy to sleep for up to 10 sec. Any damage caused will awaken the target.
     H_SPELL_SLEEP                               = 58849,
-    SPELL_VAMPIRIC_TOUCH                        = 52723 //Heals the caster for half the damage dealt by a melee attack.
+    SPELL_VAMPIRIC_TOUCH                        = 52723, //Heals the caster for half the damage dealt by a melee attack.
+    SPELL_MAL_GANIS_KILL_CREDIT                 = 58124, // Quest credit
+    SPELL_KILL_CREDIT                           = 58630  // Non-existing spell as encounter credit, created in spell_dbc
 };
 
 enum Yells
 {
-    SAY_INTRO_1                                 = -1595009,
-    SAY_INTRO_2                                 = -1595010,
-    SAY_AGGRO                                   = -1595011,
-    SAY_KILL_1                                  = -1595012,
-    SAY_KILL_2                                  = -1595013,
-    SAY_KILL_3                                  = -1595014,
-    SAY_SLAY_1                                  = -1595015,
-    SAY_SLAY_2                                  = -1595016,
-    SAY_SLAY_3                                  = -1595017,
-    SAY_SLAY_4                                  = -1595018,
-    SAY_SLEEP_1                                 = -1595019,
-    SAY_SLEEP_2                                 = -1595020,
-    SAY_30HEALTH                                = -1595021,
-    SAY_15HEALTH                                = -1595022,
-    SAY_ESCAPE_SPEECH_1                         = -1595023,
-    SAY_ESCAPE_SPEECH_2                         = -1595024,
-    SAY_OUTRO                                   = -1595025,
+    SAY_AGGRO                                   = 2,
+    SAY_KILL                                    = 3,
+    SAY_SLAY                                    = 4,
+    SAY_SLEEP                                   = 5,
+    SAY_30HEALTH                                = 6,
+    SAY_15HEALTH                                = 7,
+    SAY_ESCAPE_SPEECH_1                         = 8,
+    SAY_ESCAPE_SPEECH_2                         = 9,
+    SAY_OUTRO                                   = 10
 };
 
 enum CombatPhases
@@ -78,9 +71,9 @@ public:
 
     struct boss_mal_ganisAI : public ScriptedAI
     {
-        boss_mal_ganisAI(Creature* c) : ScriptedAI(c)
+        boss_mal_ganisAI(Creature* creature) : ScriptedAI(creature)
         {
-            instance = c->GetInstanceScript();
+            instance = creature->GetInstanceScript();
         }
 
         uint32 uiCarrionSwarmTimer;
@@ -115,7 +108,7 @@ public:
 
         void EnterCombat(Unit* /*who*/)
         {
-            DoScriptText(SAY_AGGRO, me);
+            Talk(SAY_AGGRO);
             if (instance)
                 instance->SetData(DATA_MAL_GANIS_EVENT, IN_PROGRESS);
         }
@@ -137,13 +130,13 @@ public:
 
                     if (!bYelled && HealthBelowPct(30))
                     {
-                        DoScriptText(SAY_30HEALTH, me);
+                        Talk(SAY_30HEALTH);
                         bYelled = true;
                     }
 
                     if (!bYelled2 && HealthBelowPct(15))
                     {
-                        DoScriptText(SAY_15HEALTH, me);
+                        Talk(SAY_15HEALTH);
                         bYelled2 = true;
                     }
 
@@ -186,7 +179,7 @@ public:
 
                     if (uiSleepTimer < diff)
                     {
-                        DoScriptText(RAND(SAY_SLEEP_1, SAY_SLEEP_2), me);
+                        Talk(SAY_SLEEP);
                         if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 100, true))
                             DoCast(target, SPELL_SLEEP);
                         uiSleepTimer = urand(15000, 20000);
@@ -200,7 +193,7 @@ public:
                         switch (uiOutroStep)
                         {
                             case 1:
-                                DoScriptText(SAY_ESCAPE_SPEECH_1, me);
+                                Talk(SAY_ESCAPE_SPEECH_1);
                                 me->GetMotionMaster()->MoveTargetedHome();
                                 ++uiOutroStep;
                                 uiOutroTimer = 8000;
@@ -208,12 +201,12 @@ public:
                             case 2:
                                 me->SetTarget(instance ? instance->GetData64(DATA_ARTHAS) : 0);
                                 me->HandleEmoteCommand(29);
-                                DoScriptText(SAY_ESCAPE_SPEECH_2, me);
+                                Talk(SAY_ESCAPE_SPEECH_2);
                                 ++uiOutroStep;
                                 uiOutroTimer = 9000;
                                 break;
                             case 3:
-                                DoScriptText(SAY_OUTRO, me);
+                                Talk(SAY_OUTRO);
                                 ++uiOutroStep;
                                 uiOutroTimer = 16000;
                                 break;
@@ -226,6 +219,7 @@ public:
                                 me->SetVisible(false);
                                 me->Kill(me);
                                 break;
+
                         }
                     } else uiOutroTimer -= diff;
                     break;
@@ -237,10 +231,9 @@ public:
             if (instance)
             {
                 instance->SetData(DATA_MAL_GANIS_EVENT, DONE);
-
-                // give achievement credit to players. criteria use spell 58630 which doesn't exist.
-                if (instance)
-                    instance->DoUpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_BE_SPELL_TARGET, 58630);
+                DoCastAOE(SPELL_MAL_GANIS_KILL_CREDIT);
+                // give achievement credit and LFG rewards to players. criteria use spell 58630 which doesn't exist, but it was created in spell_dbc
+                DoCastAOE(SPELL_KILL_CREDIT);
             }
         }
 
@@ -249,9 +242,10 @@ public:
             if (victim == me)
                 return;
 
-            DoScriptText(RAND(SAY_SLAY_1, SAY_SLAY_2, SAY_SLAY_3, SAY_SLAY_4), me);
+            Talk(SAY_SLAY);
         }
     };
+
 };
 
 void AddSC_boss_mal_ganis()

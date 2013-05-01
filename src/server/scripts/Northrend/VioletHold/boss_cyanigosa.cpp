@@ -1,9 +1,5 @@
 /*
- * Copyright (C) 2005 - 2013 MaNGOS <http://www.getmangos.com/>
- *
- * Copyright (C) 2008 - 2013 Trinity <http://www.trinitycore.org/>
- *
- * Copyright (C) 2010 - 2013 ArkCORE <http://www.arkania.net/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -19,7 +15,8 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "ScriptPCH.h"
+#include "ScriptMgr.h"
+#include "ScriptedCreature.h"
 #include "violet_hold.h"
 
 enum Spells
@@ -37,16 +34,13 @@ enum Spells
 
 enum Yells
 {
-    SAY_AGGRO                                   = -1608000,
-    SAY_SLAY_1                                  = -1608001,
-    SAY_SLAY_2                                  = -1608002,
-    SAY_SLAY_3                                  = -1608003,
-    SAY_DEATH                                   = -1608004,
-    SAY_SPAWN                                   = -1608005,
-    SAY_DISRUPTION                              = -1608006,
-    SAY_BREATH_ATTACK                           = -1608007,
-    SAY_SPECIAL_ATTACK_1                        = -1608008,
-    SAY_SPECIAL_ATTACK_2                        = -1608009
+    SAY_AGGRO                                   = 0,
+    SAY_SLAY                                    = 1,
+    SAY_DEATH                                   = 2,
+    SAY_SPAWN                                   = 3,
+    SAY_DISRUPTION                              = 4,
+    SAY_BREATH_ATTACK                           = 5,
+    SAY_SPECIAL_ATTACK                          = 6
 };
 
 class boss_cyanigosa : public CreatureScript
@@ -61,9 +55,9 @@ public:
 
     struct boss_cyanigosaAI : public ScriptedAI
     {
-        boss_cyanigosaAI(Creature* c) : ScriptedAI(c)
+        boss_cyanigosaAI(Creature* creature) : ScriptedAI(creature)
         {
-            instance = c->GetInstanceScript();
+            instance = creature->GetInstanceScript();
         }
 
         uint32 uiArcaneVacuumTimer;
@@ -79,7 +73,7 @@ public:
             uiArcaneVacuumTimer = 10000;
             uiBlizzardTimer = 15000;
             uiManaDestructionTimer = 30000;
-            uiTailSweepTimer = 5000;
+            uiTailSweepTimer = 20000;
             uiUncontrollableEnergyTimer = 25000;
             if (instance)
                 instance->SetData(DATA_CYANIGOSA_EVENT, NOT_STARTED);
@@ -87,19 +81,10 @@ public:
 
         void EnterCombat(Unit* /*who*/)
         {
-            DoScriptText(SAY_AGGRO, me);
+            Talk(SAY_AGGRO);
 
             if (instance)
                 instance->SetData(DATA_CYANIGOSA_EVENT, IN_PROGRESS);
-        }
-
-        void SpellHitTarget (Unit* target, const SpellEntry* spell)
-        {
-            if (spell->Id == SPELL_ARCANE_VACUUM)
-            {
-                if (target->ToPlayer())
-                    target->ToPlayer()->TeleportTo(me->GetMapId(), me->GetPositionX(), me->GetPositionY(), me->GetPositionZ(), 0);
-            }
         }
 
         void MoveInLineOfSight(Unit* /*who*/) {}
@@ -118,30 +103,21 @@ public:
 
             if (uiArcaneVacuumTimer <= diff)
             {
-                if (!me->IsNonMeleeSpellCasted(false))
-                {
                 DoCast(SPELL_ARCANE_VACUUM);
-                    uiArcaneVacuumTimer = 30000;
-                }
+                uiArcaneVacuumTimer = 10000;
             } else uiArcaneVacuumTimer -= diff;
 
             if (uiBlizzardTimer <= diff)
             {
-                if (!me->IsNonMeleeSpellCasted(false))
-                {
                 if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 100, true))
                     DoCast(target, SPELL_BLIZZARD);
                 uiBlizzardTimer = 15000;
-                }
             } else uiBlizzardTimer -= diff;
 
             if (uiTailSweepTimer <= diff)
             {
-                if (!me->IsNonMeleeSpellCasted(false))
-                {
-                    DoCast(DUNGEON_MODE(SPELL_TAIL_SWEEP, H_SPELL_TAIL_SWEEP));
-                    uiTailSweepTimer = 5000;
-                }
+                DoCast(SPELL_TAIL_SWEEP);
+                uiTailSweepTimer = 20000;
             } else uiTailSweepTimer -= diff;
 
             if (uiUncontrollableEnergyTimer <= diff)
@@ -154,12 +130,9 @@ public:
             {
                 if (uiManaDestructionTimer <= diff)
                 {
-                    if (!me->IsNonMeleeSpellCasted(false))
-                    {
                     if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 100, true))
                         DoCast(target, SPELL_MANA_DESTRUCTION);
                     uiManaDestructionTimer = 30000;
-                    }
                 } else uiManaDestructionTimer -= diff;
             }
 
@@ -168,7 +141,7 @@ public:
 
         void JustDied(Unit* /*killer*/)
         {
-            DoScriptText(SAY_DEATH, me);
+            Talk(SAY_DEATH);
 
             if (instance)
                 instance->SetData(DATA_CYANIGOSA_EVENT, DONE);
@@ -178,9 +151,10 @@ public:
         {
             if (victim == me)
                 return;
-            DoScriptText(RAND(SAY_SLAY_1, SAY_SLAY_2, SAY_SLAY_3), me);
+            Talk(SAY_SLAY);
         }
     };
+
 };
 
 class achievement_defenseless : public AchievementCriteriaScript

@@ -1,9 +1,5 @@
 /*
- * Copyright (C) 2005 - 2013 MaNGOS <http://www.getmangos.com/>
- *
- * Copyright (C) 2008 - 2013 Trinity <http://www.trinitycore.org/>
- *
- * Copyright (C) 2010 - 2013 ArkCORE <http://www.arkania.net/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -26,30 +22,32 @@ SDComment: Needs adjustments to blizzlike timers, Yell Text + Sound to DB
 SDCategory: Utgarde Keep
 EndScriptData */
 
-#include "ScriptPCH.h"
+#include "ScriptMgr.h"
+#include "ScriptedCreature.h"
 #include "utgarde_keep.h"
 
 enum eEnums
 {
     //signed for 24200, but used by 24200, 27390
-    YELL_SKARVALD_AGGRO                         = -1574011,
-    YELL_SKARVALD_DAL_DIED                      = -1574012,
-    YELL_SKARVALD_SKA_DIEDFIRST                 = -1574013,
-    YELL_SKARVALD_KILL                          = -1574014,
-    YELL_SKARVALD_DAL_DIEDFIRST                 = -1574015,
+    YELL_SKARVALD_AGGRO                         = 0,
+    YELL_SKARVALD_DAL_DIED                      = 1,
+    YELL_SKARVALD_SKA_DIEDFIRST                 = 2,
+    YELL_SKARVALD_KILL                          = 3,
+    YELL_SKARVALD_DAL_DIEDFIRST                 = 4,
 
     //signed for 24201, but used by 24201, 27389
-    YELL_DALRONN_AGGRO                          = -1574016,
-    YELL_DALRONN_SKA_DIED                       = -1574017,
-    YELL_DALRONN_DAL_DIEDFIRST                  = -1574018,
-    YELL_DALRONN_KILL                           = -1574019,
-    YELL_DALRONN_SKA_DIEDFIRST                  = -1574020,
+    YELL_DALRONN_AGGRO                          = 0,
+    YELL_DALRONN_SKA_DIED                       = 1,
+    YELL_DALRONN_DAL_DIEDFIRST                  = 2,
+    YELL_DALRONN_KILL                           = 3,
+    YELL_DALRONN_SKA_DIEDFIRST                  = 4,
 
 //Spells of Skarvald and his Ghost
     MOB_SKARVALD_THE_CONSTRUCTOR                = 24200,
     SPELL_CHARGE                                = 43651,
     SPELL_STONE_STRIKE                          = 48583,
     SPELL_SUMMON_SKARVALD_GHOST                 = 48613,
+    SPELL_ENRAGE                                = 48193,
     MOB_SKARVALD_GHOST                          = 27390,
 //Spells of Dalronn and his Ghost
     MOB_DALRONN_THE_CONTROLLER                  = 24201,
@@ -59,6 +57,20 @@ enum eEnums
     SPELL_DEBILITATE                            = 43650,
     SPELL_SUMMON_DALRONN_GHOST                  = 48612,
     MOB_DALRONN_GHOST                           = 27389
+};
+
+class SkarvaldChargePredicate
+{
+   public:
+      SkarvaldChargePredicate(Unit* unit) : me(unit) {}
+
+    bool operator() (WorldObject* object) const
+    {
+        return object->GetDistance2d(me) >= 5.0f && object->GetDistance2d(me) <= 30.0f;
+    }
+
+    private:
+        Unit* me;
 };
 
 class boss_skarvald_the_constructor : public CreatureScript
@@ -73,9 +85,9 @@ public:
 
     struct boss_skarvald_the_constructorAI : public ScriptedAI
     {
-        boss_skarvald_the_constructorAI(Creature* c) : ScriptedAI(c)
+        boss_skarvald_the_constructorAI(Creature* creature) : ScriptedAI(creature)
         {
-            instance = c->GetInstanceScript();
+            instance = creature->GetInstanceScript();
         }
 
         InstanceScript* instance;
@@ -86,6 +98,7 @@ public:
         uint32 Response_Timer;
         uint32 Check_Timer;
         bool Dalronn_isDead;
+        bool Enraged;
 
         void Reset()
         {
@@ -93,13 +106,12 @@ public:
             StoneStrike_Timer = 10000;
             Dalronn_isDead = false;
             Check_Timer = 5000;
-
-            me->RemoveLootMode(1);
+            Enraged = false;
 
             ghost = (me->GetEntry() == MOB_SKARVALD_GHOST);
             if (!ghost && instance)
             {
-                Unit* dalronn = Unit::GetUnit((*me), instance->GetData64(DATA_DALRONN));
+                Unit* dalronn = Unit::GetUnit(*me, instance->GetData64(DATA_DALRONN));
                 if (dalronn && dalronn->isDead())
                     CAST_CRE(dalronn)->Respawn();
 
@@ -111,9 +123,9 @@ public:
         {
             if (!ghost && instance)
             {
-                DoScriptText(YELL_SKARVALD_AGGRO, me);
+                Talk(YELL_SKARVALD_AGGRO);
 
-                Unit* dalronn = Unit::GetUnit((*me), instance->GetData64(DATA_DALRONN));
+                Unit* dalronn = Unit::GetUnit(*me, instance->GetData64(DATA_DALRONN));
                 if (dalronn && dalronn->isAlive() && !dalronn->getVictim())
                     dalronn->getThreatManager().addThreat(who, 0.0f);
 
@@ -121,31 +133,39 @@ public:
             }
         }
 
-        void JustDied(Unit* Killer)
+        void DamageTaken(Unit* /*attacker*/, uint32& damage)
+        {
+            if (!Enraged && !ghost && me->HealthBelowPctDamaged(15, damage))
+            {
+                Enraged = true;
+                DoCast(me, SPELL_ENRAGE);
+            }
+        }
+
+        void JustDied(Unit* killer)
         {
             if (!ghost && instance)
             {
-                Unit* dalronn = Unit::GetUnit((*me), instance->GetData64(DATA_DALRONN));
+                Unit* dalronn = Unit::GetUnit(*me, instance->GetData64(DATA_DALRONN));
                 if (dalronn)
                 {
                     if (dalronn->isDead())
                     {
-                        DoScriptText(YELL_SKARVALD_DAL_DIED, me);
+                        Talk(YELL_SKARVALD_DAL_DIED);
 
                         instance->SetData(DATA_SKARVALD_DALRONN_EVENT, DONE);
                     }
                     else
                     {
-                        DoScriptText(YELL_SKARVALD_SKA_DIEDFIRST, me);
+                        Talk(YELL_SKARVALD_SKA_DIEDFIRST);
 
-                        dalronn->ToCreature()->AddLootMode(1);
-                        //me->RemoveFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
+                        me->RemoveFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
                         //DoCast(me, SPELL_SUMMON_SKARVALD_GHOST, true);
                         Creature* temp = me->SummonCreature(MOB_SKARVALD_GHOST, me->GetPositionX(), me->GetPositionY(), me->GetPositionZ(), 0, TEMPSUMMON_CORPSE_DESPAWN, 5000);
                         if (temp)
                         {
                             temp->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
-                            temp->AI()->AttackStart(Killer);
+                            temp->AI()->AttackStart(killer);
                         }
                     }
                 }
@@ -156,7 +176,7 @@ public:
         {
             if (!ghost)
             {
-                DoScriptText(YELL_SKARVALD_KILL, me);
+                Talk(YELL_SKARVALD_KILL);
             }
         }
 
@@ -191,7 +211,7 @@ public:
                 {
                     if (Response_Timer <= diff)
                     {
-                        DoScriptText(YELL_SKARVALD_DAL_DIEDFIRST, me);
+                        Talk(YELL_SKARVALD_DAL_DIEDFIRST);
 
                         Response_Timer = 0;
                     } else Response_Timer -= diff;
@@ -200,7 +220,7 @@ public:
 
             if (Charge_Timer <= diff)
             {
-                DoCast(SelectTarget(SELECT_TARGET_RANDOM, 1), SPELL_CHARGE);
+                DoCast(SelectTarget(SELECT_TARGET_RANDOM, 0, SkarvaldChargePredicate(me)), SPELL_CHARGE);
                 Charge_Timer = 5000+rand()%5000;
             } else Charge_Timer -= diff;
 
@@ -210,9 +230,11 @@ public:
                 StoneStrike_Timer = 5000+rand()%5000;
             } else StoneStrike_Timer -= diff;
 
-            DoMeleeAttackIfReady();
+            if (!me->HasUnitState(UNIT_STATE_CASTING))
+                DoMeleeAttackIfReady();
         }
     };
+
 };
 
 class boss_dalronn_the_controller : public CreatureScript
@@ -227,9 +249,9 @@ public:
 
     struct boss_dalronn_the_controllerAI : public ScriptedAI
     {
-        boss_dalronn_the_controllerAI(Creature* c) : ScriptedAI(c)
+        boss_dalronn_the_controllerAI(Creature* creature) : ScriptedAI(creature)
         {
-            instance = c->GetInstanceScript();
+            instance = creature->GetInstanceScript();
         }
 
         InstanceScript* instance;
@@ -253,12 +275,10 @@ public:
             Skarvald_isDead = false;
             AggroYell_Timer = 0;
 
-            me->RemoveLootMode(1);
-
             ghost = me->GetEntry() == MOB_DALRONN_GHOST;
             if (!ghost && instance)
             {
-                Unit* skarvald = Unit::GetUnit((*me), instance->GetData64(DATA_SKARVALD));
+                Unit* skarvald = Unit::GetUnit(*me, instance->GetData64(DATA_SKARVALD));
                 if (skarvald && skarvald->isDead())
                     CAST_CRE(skarvald)->Respawn();
 
@@ -270,7 +290,7 @@ public:
         {
             if (!ghost && instance)
             {
-                Unit* skarvald = Unit::GetUnit((*me), instance->GetData64(DATA_SKARVALD));
+                Unit* skarvald = Unit::GetUnit(*me, instance->GetData64(DATA_SKARVALD));
                 if (skarvald && skarvald->isAlive() && !skarvald->getVictim())
                     skarvald->getThreatManager().addThreat(who, 0.0f);
 
@@ -281,32 +301,31 @@ public:
             }
         }
 
-        void JustDied(Unit* Killer)
+        void JustDied(Unit* killer)
         {
             if (!ghost && instance)
             {
-                Unit* skarvald = Unit::GetUnit((*me), instance->GetData64(DATA_SKARVALD));
+                Unit* skarvald = Unit::GetUnit(*me, instance->GetData64(DATA_SKARVALD));
                 if (skarvald)
                 {
                     if (skarvald->isDead())
                     {
-                        DoScriptText(YELL_DALRONN_SKA_DIED, me);
+                        Talk(YELL_DALRONN_SKA_DIED);
 
                         if (instance)
                             instance->SetData(DATA_SKARVALD_DALRONN_EVENT, DONE);
                     }
                     else
                     {
-                        DoScriptText(YELL_DALRONN_DAL_DIEDFIRST, me);
+                        Talk(YELL_DALRONN_DAL_DIEDFIRST);
 
-                        skarvald->ToCreature()->AddLootMode(1);
-                        //me->RemoveFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
+                        me->RemoveFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
                         //DoCast(me, SPELL_SUMMON_DALRONN_GHOST, true);
                         Creature* temp = me->SummonCreature(MOB_DALRONN_GHOST, me->GetPositionX(), me->GetPositionY(), me->GetPositionZ(), 0, TEMPSUMMON_CORPSE_DESPAWN, 5000);
                         if (temp)
                         {
                             temp->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
-                            temp->AI()->AttackStart(Killer);
+                            temp->AI()->AttackStart(killer);
                         }
                     }
                 }
@@ -317,7 +336,7 @@ public:
         {
             if (!ghost)
             {
-                DoScriptText(YELL_DALRONN_KILL, me);
+                Talk(YELL_DALRONN_KILL);
             }
         }
 
@@ -336,7 +355,7 @@ public:
             {
                 if (AggroYell_Timer <= diff)
                 {
-                    DoScriptText(YELL_DALRONN_AGGRO, me);
+                    Talk(YELL_DALRONN_AGGRO);
 
                     AggroYell_Timer = 0;
                 } else AggroYell_Timer -= diff;
@@ -363,7 +382,7 @@ public:
                 {
                     if (Response_Timer <= diff)
                     {
-                        DoScriptText(YELL_DALRONN_SKA_DIEDFIRST, me);
+                        Talk(YELL_DALRONN_SKA_DIEDFIRST);
                         Response_Timer = 0;
                     } else Response_Timer -= diff;
                 }
@@ -402,6 +421,7 @@ public:
             DoMeleeAttackIfReady();
         }
     };
+
 };
 
 void AddSC_boss_skarvald_dalronn()

@@ -1,9 +1,5 @@
 /*
- * Copyright (C) 2005 - 2013 MaNGOS <http://www.getmangos.com/>
- *
- * Copyright (C) 2008 - 2013 Trinity <http://www.trinitycore.org/>
- *
- * Copyright (C) 2010 - 2013 ArkCORE <http://www.arkania.net/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -25,19 +21,23 @@ SD%Complete: 0
 SDComment:
 EndScriptData */
 
-#include "ScriptPCH.h"
+#include "ScriptMgr.h"
+#include "ScriptedCreature.h"
+#include "GridNotifiers.h"
+#include "GridNotifiersImpl.h"
+#include "Cell.h"
+#include "CellImpl.h"
 #include "sunwell_plateau.h"
 
 enum Yells
 {
-    YELL_BIRTH                                    = -1580036,
-    YELL_KILL1                                    = -1580037,
-    YELL_KILL2                                    = -1580038,
-    YELL_BREATH                                   = -1580039,
-    YELL_TAKEOFF                                  = -1580040,
-    YELL_BERSERK                                  = -1580041,
-    YELL_DEATH                                    = -1580042,
-    YELL_KALECGOS                                 = -1580043, // after felmyst's death spawned and say this
+    YELL_BIRTH                                    = 0,
+    YELL_KILL                                     = 1,
+    YELL_BREATH                                   = 2,
+    YELL_TAKEOFF                                  = 3,
+    YELL_BERSERK                                  = 4,
+    YELL_DEATH                                    = 5,
+  //YELL_KALECGOS                                 = 6, Not used. After felmyst's death spawned and say this
 };
 
 enum Spells
@@ -119,9 +119,9 @@ public:
 
     struct boss_felmystAI : public ScriptedAI
     {
-        boss_felmystAI(Creature* c) : ScriptedAI(c)
+        boss_felmystAI(Creature* creature) : ScriptedAI(creature)
         {
-            instance = c->GetInstanceScript();
+            instance = creature->GetInstanceScript();
         }
 
         InstanceScript* instance;
@@ -141,7 +141,7 @@ public:
 
             uiFlightCount = 0;
 
-            me->AddUnitMovementFlag(MOVEMENTFLAG_LEVITATING);
+            me->SetDisableGravity(true);
             me->SetFloatValue(UNIT_FIELD_BOUNDINGRADIUS, 10);
             me->SetFloatValue(UNIT_FIELD_COMBATREACH, 10);
 
@@ -180,23 +180,23 @@ public:
 
         void KilledUnit(Unit* /*victim*/)
         {
-            DoScriptText(RAND(YELL_KILL1, YELL_KILL2), me);
+            Talk(YELL_KILL);
         }
 
         void JustRespawned()
         {
-            DoScriptText(YELL_BIRTH, me);
+            Talk(YELL_BIRTH);
         }
 
-        void JustDied(Unit* /*Killer*/)
+        void JustDied(Unit* /*killer*/)
         {
-            DoScriptText(YELL_DEATH, me);
+            Talk(YELL_DEATH);
 
             if (instance)
                 instance->SetData(DATA_FELMYST_EVENT, DONE);
         }
 
-        void SpellHit(Unit* caster, const SpellEntry* spell)
+        void SpellHit(Unit* caster, const SpellInfo* spell)
         {
             // workaround for linked aura
             /*if (spell->Id == SPELL_VAPOR_FORCE)
@@ -258,7 +258,7 @@ public:
                 events.ScheduleEvent(EVENT_FLIGHT, 60000);
                 break;
             case PHASE_FLIGHT:
-                me->SetUnitMovementFlags(MOVEMENTFLAG_LEVITATING);
+                me->SetUnitMovementFlags(MOVEMENTFLAG_DISABLE_GRAVITY);
                 events.ScheduleEvent(EVENT_FLIGHT_SEQUENCE, 1000);
                 uiFlightCount = 0;
                 uiBreathCount = 0;
@@ -278,7 +278,7 @@ public:
                 me->GetMotionMaster()->Clear(false);
                 me->HandleEmoteCommand(EMOTE_ONESHOT_LIFTOFF);
                 me->StopMoving();
-                DoScriptText(YELL_TAKEOFF, me);
+                Talk(YELL_TAKEOFF);
                 events.ScheduleEvent(EVENT_FLIGHT_SEQUENCE, 2000);
                 break;
             case 1:
@@ -395,7 +395,7 @@ public:
                 }
                 break;
             case 10:
-                me->RemoveUnitMovementFlag(MOVEMENTFLAG_LEVITATING);
+                me->SetDisableGravity(false);
                 me->HandleEmoteCommand(EMOTE_ONESHOT_LAND);
                 EnterPhase(PHASE_GROUND);
                 AttackStart(SelectTarget(SELECT_TARGET_TOPAGGRO));
@@ -423,7 +423,7 @@ public:
                 switch (events.ExecuteEvent())
                 {
                     case EVENT_BERSERK:
-                        DoScriptText(YELL_BERSERK, me);
+                        Talk(YELL_BERSERK);
                         DoCast(me, SPELL_BERSERK, true);
                         events.ScheduleEvent(EVENT_BERSERK, 10000);
                         break;
@@ -458,7 +458,7 @@ public:
                 switch (events.ExecuteEvent())
                 {
                     case EVENT_BERSERK:
-                        DoScriptText(YELL_BERSERK, me);
+                        Talk(YELL_BERSERK);
                         DoCast(me, SPELL_BERSERK, true);
                         break;
                     case EVENT_FLIGHT_SEQUENCE:
@@ -525,7 +525,7 @@ public:
 
     struct mob_felmyst_vaporAI : public ScriptedAI
     {
-        mob_felmyst_vaporAI(Creature* c) : ScriptedAI(c)
+        mob_felmyst_vaporAI(Creature* creature) : ScriptedAI(creature)
         {
             me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
             me->SetSpeed(MOVE_RUN, 0.8f);
@@ -557,7 +557,7 @@ public:
 
     struct mob_felmyst_trailAI : public ScriptedAI
     {
-        mob_felmyst_trailAI(Creature* c) : ScriptedAI(c)
+        mob_felmyst_trailAI(Creature* creature) : ScriptedAI(creature)
         {
             me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
             DoCast(me, SPELL_TRAIL_TRIGGER, true);

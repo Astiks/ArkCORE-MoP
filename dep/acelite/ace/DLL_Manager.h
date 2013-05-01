@@ -4,7 +4,7 @@
 /**
  *  @file    DLL_Manager.h
  *
- *  $Id: DLL_Manager.h 95229 2011-12-05 22:25:15Z shuston $
+ *  $Id: DLL_Manager.h 95913 2012-06-21 17:14:36Z johnnyw $
  *
  *  @author Don Hinton <dhinton@ieee.org>
  */
@@ -75,10 +75,10 @@ public:
    *        regardless of platform. The set of name transforms is listed
    *        below. A @i decorator is a platform's name designator for a debug
    *        vs release build. For example, on Windows it is usually "d".
-   *        @li Name + decorator + suffix
-   *        @li Name + suffix
    *        @li Prefix + name + decorator + suffix
    *        @li Prefix + name + suffix
+   *        @li Name + decorator + suffix
+   *        @li Name + suffix
    *        @li Name
    *        Note that the transforms with @i decorator will be avoided if
    *        ACE is built with the @c ACE_DISABLE_DEBUG_DLL_CHECK config macro.

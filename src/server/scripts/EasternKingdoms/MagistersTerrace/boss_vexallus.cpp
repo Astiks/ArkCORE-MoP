@@ -1,9 +1,5 @@
 /*
- * Copyright (C) 2005 - 2013 MaNGOS <http://www.getmangos.com/>
- *
- * Copyright (C) 2008 - 2013 Trinity <http://www.trinitycore.org/>
- *
- * Copyright (C) 2010 - 2013 ArkCORE <http://www.arkania.net/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -27,16 +23,17 @@ SDComment: Heroic and Normal support. Needs further testing.
 SDCategory: Magister's Terrace
 EndScriptData */
 
-#include "ScriptPCH.h"
+#include "ScriptMgr.h"
+#include "ScriptedCreature.h"
 #include "magisters_terrace.h"
 
 enum eEnums
 {
-    SAY_AGGRO                       = -1585007,
-    SAY_ENERGY                      = -1585008,
-    SAY_OVERLOAD                    = -1585009,
-    SAY_KILL                        = -1585010,
-    EMOTE_DISCHARGE_ENERGY          = -1585011,
+    SAY_AGGRO                       = 0,
+    SAY_ENERGY                      = 1,
+    SAY_OVERLOAD                    = 2,
+    SAY_KILL                        = 3,
+    EMOTE_DISCHARGE_ENERGY          = 4,
 
     //is this text for real?
     //#define SAY_DEATH             "What...happen...ed."
@@ -47,14 +44,14 @@ enum eEnums
 
     //Vexallus spell info
     SPELL_CHAIN_LIGHTNING           = 44318,
-    SPELL_H_CHAIN_LIGHTNING         = 46380,               //heroic spell
+    SPELL_H_CHAIN_LIGHTNING         = 46380,                //heroic spell
     SPELL_OVERLOAD                  = 44353,
     SPELL_ARCANE_SHOCK              = 44319,
-    SPELL_H_ARCANE_SHOCK            = 46381,               //heroic spell
+    SPELL_H_ARCANE_SHOCK            = 46381,                //heroic spell
 
-    SPELL_SUMMON_PURE_ENERGY        = 44322,               //mod scale -10
-    H_SPELL_SUMMON_PURE_ENERGY1     = 46154,               //mod scale -5
-    H_SPELL_SUMMON_PURE_ENERGY2     = 46159,               //mod scale -5
+    SPELL_SUMMON_PURE_ENERGY        = 44322,                //mod scale -10
+    H_SPELL_SUMMON_PURE_ENERGY1     = 46154,                //mod scale -5
+    H_SPELL_SUMMON_PURE_ENERGY2     = 46159,                //mod scale -5
 
     //Creatures
     NPC_PURE_ENERGY                 = 24745,
@@ -73,11 +70,11 @@ public:
         return new boss_vexallusAI (creature);
     };
 
-    struct boss_vexallusAI : public ScriptedAI
+    struct boss_vexallusAI : public BossAI
     {
-        boss_vexallusAI(Creature* c) : ScriptedAI(c)
+        boss_vexallusAI(Creature* creature) : BossAI(creature, DATA_VEXALLUS_EVENT)
         {
-            instance = c->GetInstanceScript();
+            instance = creature->GetInstanceScript();
         }
 
         InstanceScript* instance;
@@ -90,6 +87,7 @@ public:
 
         void Reset()
         {
+            summons.DespawnAll();
             ChainLightningTimer = 8000;
             ArcaneShockTimer = 5000;
             OverloadTimer = 1200;
@@ -102,18 +100,19 @@ public:
 
         void KilledUnit(Unit* /*victim*/)
         {
-            DoScriptText(SAY_KILL, me);
+            Talk(SAY_KILL);
         }
 
-        void JustDied(Unit* /*victim*/)
+        void JustDied(Unit* /*killer*/)
         {
+            summons.DespawnAll();
             if (instance)
                 instance->SetData(DATA_VEXALLUS_EVENT, DONE);
         }
 
         void EnterCombat(Unit* /*who*/)
         {
-            DoScriptText(SAY_AGGRO, me);
+            Talk(SAY_AGGRO);
 
             if (instance)
                 instance->SetData(DATA_VEXALLUS_EVENT, IN_PROGRESS);
@@ -147,8 +146,8 @@ public:
                     else
                         ++IntervalHealthAmount;
 
-                    DoScriptText(SAY_ENERGY, me);
-                    DoScriptText(EMOTE_DISCHARGE_ENERGY, me);
+                    Talk(SAY_ENERGY);
+                    Talk(EMOTE_DISCHARGE_ENERGY);
 
                     if (IsHeroic())
                     {
@@ -209,7 +208,10 @@ public:
 
     struct mob_pure_energyAI : public ScriptedAI
     {
-        mob_pure_energyAI(Creature* c) : ScriptedAI(c) {}
+        mob_pure_energyAI(Creature* creature) : ScriptedAI(creature)
+        {
+            me->SetDisplayId(me->GetCreatureTemplate()->Modelid2);
+        }
 
         void Reset() {}
 

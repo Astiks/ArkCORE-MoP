@@ -1,7 +1,5 @@
 /*
- * Copyright (C) 2008 - 2013 TrinityCore <http://www.trinitycore.org/>
- *
- * Copyright (C) 2010 - 2013 ArkCORE <http://www.arkania.net/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -22,19 +20,9 @@
 #include "InstanceScript.h"
 #include "icecrown_citadel.h"
 #include "Spell.h"
+#include "Player.h"
 
 #define GOSSIP_SENDER_ICC_PORT 631
-#define GOSSIP_TEXT(id) sObjectMgr->GetGossipText(id)->Options[0].Text_0
-
-enum eTeleportGossips
-{
-    GOSSIP_TELEPORT_LIGHTS_HAMMER           = 40000,
-    GOSSIP_TELEPORT_ORATORY_OF_THE_DAMNED   = 40001,
-    GOSSIP_TELEPORT_RAMPART_OF_SKULLS       = 40002,
-    GOSSIP_TELEPORT_DEATHBRINGERS_RISE      = 40003,
-    GOSSIP_TELEPORT_UPPER_SPIRE             = 40004,
-    GOSSIP_TELEPORT_SINDRAGOSAS_LAIR        = 40005
-};
 
 class icecrown_citadel_teleport : public GameObjectScript
 {
@@ -54,13 +42,12 @@ class icecrown_citadel_teleport : public GameObjectScript
                     player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Teleport to the Deathbringer's Rise.", GOSSIP_SENDER_ICC_PORT, DEATHBRINGER_S_RISE_TELEPORT);
                 if (instance->GetData(DATA_COLDFLAME_JETS) == DONE)
                     player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Teleport to the Upper Spire.", GOSSIP_SENDER_ICC_PORT, UPPER_SPIRE_TELEPORT);
+                // TODO: Gauntlet event before Sindragosa
                 if (instance->GetBossState(DATA_VALITHRIA_DREAMWALKER) == DONE)
-                    player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Teleport to the Sindragosa's Lair", GOSSIP_SENDER_ICC_PORT, SINDRAGOSA_S_LAIR_TELEPORT);
-                if (instance->GetBossState(DATA_PROFESSOR_PUTRICIDE) == DONE && instance->GetBossState(DATA_BLOOD_QUEEN_LANA_THEL) == DONE && instance->GetBossState(DATA_SINDRAGOSA) == DONE)
-                    player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Teleport to The Frozen Throne", GOSSIP_SENDER_ICC_PORT, FROZEN_THRONE_TELEPORT);
+                    player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Teleport to Sindragosa's Lair", GOSSIP_SENDER_ICC_PORT, SINDRAGOSA_S_LAIR_TELEPORT);
             }
 
-            player->SEND_GOSSIP_MENU(go->GetGOInfo()->GetGossipMenuId(), go->GetGUID());
+            player->SEND_GOSSIP_MENU(player->GetGossipTextId(go), go->GetGUID());
             return true;
         }
 
@@ -68,7 +55,7 @@ class icecrown_citadel_teleport : public GameObjectScript
         {
             player->PlayerTalkClass->ClearMenus();
             player->CLOSE_GOSSIP_MENU();
-            SpellEntry const* spell = sSpellStore.LookupEntry(action);
+            SpellInfo const* spell = sSpellMgr->GetSpellInfo(action);
             if (!spell)
                 return false;
 
@@ -94,7 +81,7 @@ class at_frozen_throne_teleport : public AreaTriggerScript
         {
             if (player->isInCombat())
             {
-                if (SpellEntry const* spell = sSpellStore.LookupEntry(FROZEN_THRONE_TELEPORT))
+                if (SpellInfo const* spell = sSpellMgr->GetSpellInfo(FROZEN_THRONE_TELEPORT))
                     Spell::SendCastResult(player, spell, 0, SPELL_FAILED_AFFECTING_COMBAT);
                 return true;
             }

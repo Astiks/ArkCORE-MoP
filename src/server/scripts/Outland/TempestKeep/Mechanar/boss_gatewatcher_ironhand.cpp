@@ -1,27 +1,19 @@
 /*
- * Copyright (C) 2005 - 2013 MaNGOS <http://www.getmangos.com/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
- * Copyright (C) 2008 - 2013 Trinity <http://www.trinitycore.org/>
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2 of the License, or (at your
+ * option) any later version.
  *
- * Copyright (C) 2006 - 2013 ScriptDev2 <http://www.scriptdev2.com/>
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
  *
- * Copyright (C) 2010 - 2013 ProjectSkyfire <http://www.projectskyfire.org/>
- *
- * Copyright (C) 2011 - 2013 ArkCORE <http://www.arkania.net/>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 /* ScriptData
@@ -31,17 +23,16 @@ SDComment:
 SDCategory: Tempest Keep, The Mechanar
 EndScriptData */
 
-#include "ScriptPCH.h"
+#include "ScriptMgr.h"
+#include "ScriptedCreature.h"
 
 enum eSays
 {
-    SAY_AGGRO_1                    = -1554006,
-    SAY_HAMMER_1                   = -1554007,
-    SAY_HAMMER_2                   = -1554008,
-    SAY_SLAY_1                     = -1554009,
-    SAY_SLAY_2                     = -1554010,
-    SAY_DEATH_1                    = -1554011,
-    EMOTE_HAMMER                   = -1554012,
+    SAY_AGGRO                      = 0,
+    SAY_HAMMER                     = 1,
+    SAY_SLAY                       = 2,
+    SAY_DEATH                      = 3,
+    EMOTE_HAMMER                   = 4
 };
 
 enum eSpells
@@ -66,7 +57,7 @@ class boss_gatewatcher_iron_hand : public CreatureScript
             // Gatewatcher Iron-Hand AI
             struct boss_gatewatcher_iron_handAI : public ScriptedAI
             {
-                boss_gatewatcher_iron_handAI(Creature* pCreature) : ScriptedAI(pCreature)
+                boss_gatewatcher_iron_handAI(Creature* creature) : ScriptedAI(creature)
                 {
                 }
 
@@ -79,10 +70,11 @@ class boss_gatewatcher_iron_hand : public CreatureScript
                     Shadow_Power_Timer = 25000;
                     Jackhammer_Timer = 45000;
                     Stream_of_Machine_Fluid_Timer = 55000;
+
                 }
-                void EnterCombat(Unit * /*who*/)
+                void EnterCombat(Unit* /*who*/)
                 {
-                    DoScriptText(SAY_AGGRO_1, me);
+                    Talk(SAY_AGGRO);
                 }
 
                 void KilledUnit(Unit* /*victim*/)
@@ -90,12 +82,12 @@ class boss_gatewatcher_iron_hand : public CreatureScript
                     if (rand()%2)
                         return;
 
-                    DoScriptText(RAND(SAY_SLAY_1, SAY_SLAY_2), me);
+                    Talk(SAY_SLAY);
                 }
 
-                void JustDied(Unit* /*Killer*/)
+                void JustDied(Unit* /*killer*/)
                 {
-                    DoScriptText(SAY_DEATH_1, me);
+                    Talk(SAY_DEATH);
                     //TODO: Add door check/open code
                 }
 
@@ -109,7 +101,7 @@ class boss_gatewatcher_iron_hand : public CreatureScript
                     if (Shadow_Power_Timer <= diff)
                     {
                         DoCast(me, SPELL_SHADOW_POWER);
-                        Shadow_Power_Timer = 20000 + rand()%8000;
+                        Shadow_Power_Timer = urand(20000, 28000);
                     }
                     else
                         Shadow_Power_Timer -= diff;
@@ -118,14 +110,14 @@ class boss_gatewatcher_iron_hand : public CreatureScript
                     if (Jackhammer_Timer <= diff)
                     {
                         //TODO: expect cast this about 5 times in a row (?), announce it by emote only once
-                        DoScriptText(EMOTE_HAMMER, me);
+                        Talk(EMOTE_HAMMER);
                         DoCast(me->getVictim(), SPELL_JACKHAMMER);
 
                         //chance to yell, but not same time as emote (after spell in fact casted)
                         if (rand()%2)
-                                            return;
+                            return;
 
-                        DoScriptText(RAND(SAY_HAMMER_1, SAY_HAMMER_2), me);
+                        Talk(SAY_HAMMER);
                         Jackhammer_Timer = 30000;
                     }
                     else
@@ -135,7 +127,7 @@ class boss_gatewatcher_iron_hand : public CreatureScript
                     if (Stream_of_Machine_Fluid_Timer <= diff)
                     {
                         DoCast(me->getVictim(), SPELL_STREAM_OF_MACHINE_FLUID);
-                        Stream_of_Machine_Fluid_Timer = 35000 + rand()%15000;
+                        Stream_of_Machine_Fluid_Timer = urand(35000, 50000);
                     }
                     else
                         Stream_of_Machine_Fluid_Timer -= diff;
@@ -154,3 +146,4 @@ void AddSC_boss_gatewatcher_iron_hand()
 {
     new boss_gatewatcher_iron_hand();
 }
+

@@ -1,11 +1,5 @@
 /*
- * Copyright (C) 2005 - 2013 MaNGOS <http://www.getmangos.com/>
- *
- * Copyright (C) 2008 - 2013 Trinity <http://www.trinitycore.org/>
- *
- * Copyright (C) 2010 - 2013 ProjectSkyfire <http://www.projectskyfire.org/>
- *
- * Copyright (C) 2011 - 2013 ArkCORE <http://www.arkania.net/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -21,8 +15,10 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "ScriptPCH.h"
+#include "ScriptMgr.h"
+#include "InstanceScript.h"
 #include "forge_of_souls.h"
+#include "Player.h"
 
 #define MAX_ENCOUNTER 2
 
@@ -38,84 +34,51 @@ class instance_forge_of_souls : public InstanceMapScript
 
         struct instance_forge_of_souls_InstanceScript : public InstanceScript
         {
-            instance_forge_of_souls_InstanceScript(Map* map) : InstanceScript(map){}
-
-            uint64 uiJainaOrSylvanas1;
-            uint64 uiJainaOrSylvanas2;
-
-            uint64 uiKaliraOrElandra;
-            uint64 uiLoralenOrKolern;
-
-            uint64 uiChampion1;
-            uint64 uiChampion2;
-
-            uint32 uiEncounter[MAX_ENCOUNTER];
-
-            void Initialize()
+            instance_forge_of_souls_InstanceScript(Map* map) : InstanceScript(map)
             {
-                for (uint8 i = 0; i < MAX_ENCOUNTER; ++i)
-                    uiEncounter[i] = NOT_STARTED;
+                SetBossNumber(MAX_ENCOUNTER);
+                bronjahm = 0;
+                devourerOfSouls = 0;
 
-                uiBronjahm = 0;
-                uiDevourerOfSouls = 0;
+                teamInInstance = 0;
             }
 
-            void OnCreatureCreate(Creature* creature, bool /*add*/)
+            void OnCreatureCreate(Creature* creature)
             {
                 Map::PlayerList const &players = instance->GetPlayers();
                 if (!players.isEmpty())
-                {
                     if (Player* player = players.begin()->getSource())
-                        uiTeamInInstance = player->GetTeam();
-                }
+                        teamInInstance = player->GetTeam();
 
                 switch (creature->GetEntry())
                 {
                     case CREATURE_BRONJAHM:
-                        uiBronjahm = creature->GetGUID();
+                        bronjahm = creature->GetGUID();
                         break;
                     case CREATURE_DEVOURER:
-                        uiDevourerOfSouls = creature->GetGUID();
+                        devourerOfSouls = creature->GetGUID();
                         break;
                     case NPC_SYLVANAS_PART1:
-                        if (uiTeamInInstance == ALLIANCE)
+                        if (teamInInstance == ALLIANCE)
                             creature->UpdateEntry(NPC_JAINA_PART1, ALLIANCE);
-                        uiJainaOrSylvanas1 = creature->GetGUID();
-                        break;
-                    case NPC_SYLVANAS_PART2:
-                        if (uiTeamInInstance == ALLIANCE)
-                            creature->UpdateEntry(NPC_JAINA_PART2, ALLIANCE);
-                        uiJainaOrSylvanas2 = creature->GetGUID();
-                        break;
-                    case NPC_KALIRA:
-                        if (uiTeamInInstance == ALLIANCE)
-                            creature->UpdateEntry(NPC_ELANDRA, ALLIANCE);
-                        uiKaliraOrElandra = creature->GetGUID();
                         break;
                     case NPC_LORALEN:
-                        if (uiTeamInInstance == ALLIANCE)
+                        if (teamInInstance == ALLIANCE)
+                            creature->UpdateEntry(NPC_ELANDRA, ALLIANCE);
+                        break;
+                    case NPC_KALIRA:
+                        if (teamInInstance == ALLIANCE)
                             creature->UpdateEntry(NPC_KORELN, ALLIANCE);
-                        uiLoralenOrKolern = creature->GetGUID();
-                        break;
-                    case NPC_CHAMPION_1_HORDE:
-                        if (uiTeamInInstance == ALLIANCE)
-                            creature->UpdateEntry(NPC_CHAMPION_1_ALLIANCE, ALLIANCE);
-                        uiChampion1 = creature->GetGUID();
-                        break;
-                    case NPC_CHAMPION_2_HORDE:
-                        if (uiTeamInInstance == ALLIANCE)
-                            creature->UpdateEntry(NPC_CHAMPION_2_ALLIANCE, ALLIANCE);
-                        uiChampion2 = creature->GetGUID();
                         break;
                 }
             }
 
-            uint32 GetData(uint32 type)
+            uint32 GetData(uint32 type) const
             {
                 switch (type)
                 {
                     case DATA_TEAM_IN_INSTANCE:
-                        return uiTeamInInstance;
+                        return teamInInstance;
                     default:
                         break;
                 }
@@ -123,14 +86,14 @@ class instance_forge_of_souls : public InstanceMapScript
                 return 0;
             }
 
-            uint64 GetData64(uint32 type)
+            uint64 GetData64(uint32 type) const
             {
                 switch (type)
                 {
                     case DATA_BRONJAHM:
-                        return uiBronjahm;
+                        return bronjahm;
                     case DATA_DEVOURER:
-                        return uiDevourerOfSouls;
+                        return devourerOfSouls;
                     default:
                         break;
                 }
@@ -180,10 +143,10 @@ class instance_forge_of_souls : public InstanceMapScript
             }
 
         private:
-            uint64 uiBronjahm;
-            uint64 uiDevourerOfSouls;
+            uint64 bronjahm;
+            uint64 devourerOfSouls;
 
-            uint32 uiTeamInInstance;
+            uint32 teamInInstance;
         };
 
         InstanceScript* GetInstanceScript(InstanceMap* map) const

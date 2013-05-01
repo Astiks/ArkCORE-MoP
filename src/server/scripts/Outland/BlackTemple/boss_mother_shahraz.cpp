@@ -1,27 +1,19 @@
 /*
- * Copyright (C) 2005 - 2013 MaNGOS <http://www.getmangos.com/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
- * Copyright (C) 2008 - 2013 Trinity <http://www.trinitycore.org/>
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2 of the License, or (at your
+ * option) any later version.
  *
- * Copyright (C) 2006 - 2013 ScriptDev2 <http://www.scriptdev2.com/>
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
  *
- * Copyright (C) 2010 - 2013 ProjectSkyfire <http://www.projectskyfire.org/>
- *
- * Copyright (C) 2011 - 2013 ArkCORE <http://www.arkania.net/>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 /* ScriptData
@@ -31,34 +23,33 @@ SDComment: Saber Lash missing, Fatal Attraction slightly incorrect; need to dama
 SDCategory: Black Temple
 EndScriptData */
 
-#include "ScriptPCH.h"
+#include "ScriptMgr.h"
+#include "ScriptedCreature.h"
 #include "black_temple.h"
 
-//Speech'n'Sounds
-#define SAY_TAUNT1              -1564018
-#define SAY_TAUNT2              -1564019
-#define SAY_TAUNT3              -1564020
-#define SAY_AGGRO               -1564021
-#define SAY_SPELL1              -1564022
-#define SAY_SPELL2              -1564023
-#define SAY_SPELL3              -1564024
-#define SAY_SLAY1               -1564025
-#define SAY_SLAY2               -1564026
-#define SAY_ENRAGE              -1564027
-#define SAY_DEATH               -1564028
+enum MotherShahraz
+{
+    //Speech'n'Sounds
+    SAY_TAUNT               = 0,
+    SAY_AGGRO               = 1,
+    SAY_SPELL               = 2,
+    SAY_SLAY                = 3,
+    SAY_ENRAGE              = 4,
+    SAY_DEATH               = 5,
 
-//Spells
-#define SPELL_BEAM_SINISTER     40859
-#define SPELL_BEAM_VILE         40860
-#define SPELL_BEAM_WICKED       40861
-#define SPELL_BEAM_SINFUL       40827
-#define SPELL_ATTRACTION        40871
-#define SPELL_SILENCING_SHRIEK  40823
-#define SPELL_ENRAGE            23537
-#define SPELL_SABER_LASH        40810//43267
-#define SPELL_SABER_LASH_IMM    43690
-#define SPELL_TELEPORT_VISUAL   40869
-#define SPELL_BERSERK           45078
+    //Spells
+    SPELL_BEAM_SINISTER     = 40859,
+    SPELL_BEAM_VILE         = 40860,
+    SPELL_BEAM_WICKED       = 40861,
+    SPELL_BEAM_SINFUL       = 40827,
+    SPELL_ATTRACTION        = 40871,
+    SPELL_SILENCING_SHRIEK  = 40823,
+    SPELL_ENRAGE            = 23537,
+    SPELL_SABER_LASH        = 40810,//43267
+    SPELL_SABER_LASH_IMM    = 43690,
+    SPELL_TELEPORT_VISUAL   = 40869,
+    SPELL_BERSERK           = 45078
+};
 
 uint32 PrismaticAuras[]=
 {
@@ -91,19 +82,19 @@ class boss_mother_shahraz : public CreatureScript
 public:
     boss_mother_shahraz() : CreatureScript("boss_mother_shahraz") { }
 
-    CreatureAI* GetAI(Creature* pCreature) const
+    CreatureAI* GetAI(Creature* creature) const
     {
-        return new boss_shahrazAI (pCreature);
+        return new boss_shahrazAI (creature);
     }
 
     struct boss_shahrazAI : public ScriptedAI
     {
-        boss_shahrazAI(Creature *c) : ScriptedAI(c)
+        boss_shahrazAI(Creature* creature) : ScriptedAI(creature)
         {
-            pInstance = c->GetInstanceScript();
+            instance = creature->GetInstanceScript();
         }
 
-        InstanceScript* pInstance;
+        InstanceScript* instance;
 
         uint64 TargetGUID[3];
         uint32 BeamTimer;
@@ -122,8 +113,8 @@ public:
 
         void Reset()
         {
-            if (pInstance)
-                pInstance->SetData(DATA_MOTHERSHAHRAZEVENT, NOT_STARTED);
+            if (instance)
+                instance->SetData(DATA_MOTHERSHAHRAZEVENT, NOT_STARTED);
 
             for (uint8 i = 0; i<3; ++i)
                 TargetGUID[i] = 0;
@@ -136,33 +127,33 @@ public:
             FatalAttractionExplodeTimer = 70000;
             ShriekTimer = 30000;
             SaberTimer = 35000;
-            RandomYellTimer = 70000 + rand()%41 * 1000;
+            RandomYellTimer = urand(70, 111) * 1000;
             EnrageTimer = 600000;
             ExplosionCount = 0;
 
             Enraged = false;
         }
 
-        void EnterCombat(Unit * /*who*/)
+        void EnterCombat(Unit* /*who*/)
         {
-            if (pInstance)
-                pInstance->SetData(DATA_MOTHERSHAHRAZEVENT, IN_PROGRESS);
+            if (instance)
+                instance->SetData(DATA_MOTHERSHAHRAZEVENT, IN_PROGRESS);
 
             DoZoneInCombat();
-            DoScriptText(SAY_AGGRO, me);
+            Talk(SAY_AGGRO);
         }
 
-        void KilledUnit(Unit * /*victim*/)
+        void KilledUnit(Unit* /*victim*/)
         {
-            DoScriptText(RAND(SAY_SLAY1, SAY_SLAY2), me);
+            Talk(SAY_SLAY);
         }
 
-        void JustDied(Unit * /*victim*/)
+        void JustDied(Unit* /*killer*/)
         {
-            if (pInstance)
-                pInstance->SetData(DATA_MOTHERSHAHRAZEVENT, DONE);
+            if (instance)
+                instance->SetData(DATA_MOTHERSHAHRAZEVENT, DONE);
 
-            DoScriptText(SAY_DEATH, me);
+            Talk(SAY_DEATH);
         }
 
         void TeleportPlayers()
@@ -173,12 +164,12 @@ public:
             float Z = TeleportPoint[random].z;
             for (uint8 i = 0; i < 3; ++i)
             {
-                Unit* pUnit = SelectUnit(SELECT_TARGET_RANDOM, 1);
-                if (pUnit && pUnit->isAlive() && (pUnit->GetTypeId() == TYPEID_PLAYER))
+                Unit* unit = SelectTarget(SELECT_TARGET_RANDOM, 1);
+                if (unit && unit->isAlive() && (unit->GetTypeId() == TYPEID_PLAYER))
                 {
-                    TargetGUID[i] = pUnit->GetGUID();
-                    pUnit->CastSpell(pUnit, SPELL_TELEPORT_VISUAL, true);
-                    DoTeleportPlayer(pUnit, X, Y, Z, pUnit->GetOrientation());
+                    TargetGUID[i] = unit->GetGUID();
+                    unit->CastSpell(unit, SPELL_TELEPORT_VISUAL, true);
+                    DoTeleportPlayer(unit, X, Y, Z, unit->GetOrientation());
                 }
             }
         }
@@ -192,14 +183,14 @@ public:
             {
                 Enraged = true;
                 DoCast(me, SPELL_ENRAGE, true);
-                DoScriptText(SAY_ENRAGE, me);
+                Talk(SAY_ENRAGE);
             }
 
             //Randomly cast one beam.
             if (BeamTimer <= diff)
             {
-                Unit *pTarget = SelectUnit(SELECT_TARGET_RANDOM, 0);
-                if (!pTarget || !pTarget->isAlive())
+                Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0);
+                if (!target || !target->isAlive())
                     return;
 
                 BeamTimer = 9000;
@@ -207,16 +198,16 @@ public:
                 switch (CurrentBeam)
                 {
                     case 0:
-                        DoCast(pTarget, SPELL_BEAM_SINISTER);
+                        DoCast(target, SPELL_BEAM_SINISTER);
                         break;
                     case 1:
-                        DoCast(pTarget, SPELL_BEAM_VILE);
+                        DoCast(target, SPELL_BEAM_VILE);
                         break;
                     case 2:
-                        DoCast(pTarget, SPELL_BEAM_WICKED);
+                        DoCast(target, SPELL_BEAM_WICKED);
                         break;
                     case 3:
-                        DoCast(pTarget, SPELL_BEAM_SINFUL);
+                        DoCast(target, SPELL_BEAM_SINFUL);
                         break;
                 }
                 ++BeamCount;
@@ -224,6 +215,7 @@ public:
                 if (BeamCount > 3)
                     while (CurrentBeam == Beam)
                         CurrentBeam = rand()%3;
+
             } else BeamTimer -= diff;
 
             // Random Prismatic Shield every 15 seconds.
@@ -242,9 +234,9 @@ public:
 
                 TeleportPlayers();
 
-                DoScriptText(RAND(SAY_SPELL2, SAY_SPELL3), me);
+                Talk(SAY_SPELL);
                 FatalAttractionExplodeTimer = 2000;
-                FatalAttractionTimer = 40000 + rand()%31 * 1000;
+                FatalAttractionTimer = urand(40, 71) * 1000;
             } else FatalAttractionTimer -= diff;
 
             if (FatalAttractionExplodeTimer <= diff)
@@ -254,12 +246,10 @@ public:
                 {
                     for (uint8 i = 0; i < 3; ++i)
                     {
-                        Unit* pUnit = NULL;
                         if (TargetGUID[i])
                         {
-                            pUnit = Unit::GetUnit((*me), TargetGUID[i]);
-                            if (pUnit)
-                                pUnit->CastSpell(pUnit, SPELL_ATTRACTION, true);
+                            if (Unit* unit = Unit::GetUnit(*me, TargetGUID[i]))
+                                unit->CastSpell(unit, SPELL_ATTRACTION, true);
                             TargetGUID[i] = 0;
                         }
                     }
@@ -292,20 +282,21 @@ public:
                 if (EnrageTimer <= diff)
                 {
                     DoCast(me, SPELL_BERSERK);
-                    DoScriptText(SAY_ENRAGE, me);
+                    Talk(SAY_ENRAGE);
                 } else EnrageTimer -= diff;
             }
 
             //Random taunts
             if (RandomYellTimer <= diff)
             {
-                DoScriptText(RAND(SAY_TAUNT1, SAY_TAUNT2, SAY_TAUNT3), me);
-                RandomYellTimer = 60000 + rand()%91 * 1000;
+                Talk(SAY_TAUNT);
+                RandomYellTimer = urand(60, 151) * 1000;
             } else RandomYellTimer -= diff;
 
             DoMeleeAttackIfReady();
         }
     };
+
 };
 
 void AddSC_boss_mother_shahraz()
