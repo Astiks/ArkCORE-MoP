@@ -296,8 +296,8 @@ PlayerSave.Stats.SaveOnlyOnLogout = 1
 #                     1 - (Enabled, vmap.enableHeight)
 #                     0 - (Disabled)
 
-vmap.enableLOS    = 1
-vmap.enableHeight = 1
+vmap.enableLOS    = 0
+vmap.enableHeight = 0
 
 #
 #    vmap.ignoreSpellIds
@@ -314,7 +314,7 @@ vmap.ignoreSpellIds = "7720"
 #        Default:     1 - (Enabled, each pet attack will be checked for line of sight)
 #                     0 - (Disabled, somewhat less CPU usage)
 
-vmap.petLOS = 1
+vmap.petLOS = 0
 
 #
 #    vmap.enableIndoorCheck
@@ -322,7 +322,7 @@ vmap.petLOS = 1
 #        Default:     1 - (Enabled)
 #                     0 - (Disabled, somewhat less CPU usage)
 
-vmap.enableIndoorCheck = 1
+vmap.enableIndoorCheck = 0
 
 #
 #    DetectPosCollision
@@ -934,12 +934,13 @@ DeclinedNames = 0
 #    Expansion
 #        Description: Allow server to use content from expansions. Checks for expansion-related
 #                     map files, client compatibility and class/race character creation.
-#        Default:     3 - (Expansion: Cata)
+#        Default:     4 - (Expansion: Mop)
+#                     3 - (Expansion: Cata)
 #                     2 - (Expansion: WoLK)
 #                     1 - (Expansion: TBC)
 #                     0 - (Disabled, Ignore and disable expansion content (maps, races, classes)
 
-Expansion = 3
+Expansion = 4
 
 #
 #    MinPlayerName
@@ -1070,7 +1071,7 @@ SkipCinematics = 0
 #        Range:       1-255
 #        Default:     85
 
-MaxPlayerLevel = 85
+MaxPlayerLevel = 90
 
 #
 #    MinDualSpecLevel
@@ -3070,7 +3071,7 @@ DuelResetCooldown = 1
 #       Default: 1 = Enable
 #                0 = Disable
 
-OutdoorPvP.Wintergrasp.Enabled = 1
+OutdoorPvP.Wintergrasp.Enabled = 0
 
 #
 #   OutdoorPvP.Wintergrasp.SaveState.Period
