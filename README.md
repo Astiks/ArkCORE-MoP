@@ -1,8 +1,11 @@
 === ArkCORE 5.x -- General information ===
 
 Copyright (C) ArkCORE      (http://www.arkania.net)
+
 Copyright (C) SkyFireEMU  (http://www.projectskyfire.org)
+
 Copyright (C) TrinityCore (http://www.trinitycore.org)
+
 Copyright (C) MaNGOS      (http://www.getmangos.com)
 
   ArkCORE is free software; you can redistribute it and/or modify
