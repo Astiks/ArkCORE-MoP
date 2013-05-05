@@ -1,5 +1,6 @@
-=== ArkCORE 5.x -- General information ===
-
+ ==========================================
+    ArkCORE 5.x -- General information 
+ ==========================================
 Copyright (C) ArkCORE      (http://www.arkania.net)
 Copyright (C) SkyFireEMU  (http://www.projectskyfire.org)
 Copyright (C) TrinityCore (http://www.trinitycore.org)
@@ -50,3 +51,9 @@ to update your database from an older revision/version can be found in the
 database/updates directory.
 
 See http://wiki.arkania.net/ for installation instructions on Linux.
+
+ =====================================================================
+
+                 Working on something really good
+                      Expect a very soon
+ =====================================================================
